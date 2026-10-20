@@ -20,9 +20,10 @@ export function createHoverAsk({ gate, open, delayMs = HOVER_ASK_MS, timers = gl
   };
   return {
     // onChar: 마우스가 지금 캐릭터 위인가. 위에 있고 열어도 되면 재기 시작, 벗어나거나 막히면 취소
-    move(onChar) {
+    // moved: 실제 mousemove 로 온 판정인가. 아니면(재판정·커서 폴링) 이미 재는 중인 타이머는 두되 새로 시작하진 않는다
+    move(onChar, moved = true) {
       if (!onChar || !gate()) return cancel();
-      if (timer) return;
+      if (timer || !moved) return;
       timer = timers.setTimeout(() => {
         timer = null;
         if (gate()) open(); // 2초 사이 끌기·둘러보기·설정 끄기가 생겼으면 안 연다

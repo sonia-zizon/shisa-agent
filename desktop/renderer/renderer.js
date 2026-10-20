@@ -1049,12 +1049,12 @@ askInput.addEventListener('blur', () => { if (askFocused && !picking && !askPaus
 window.addEventListener('blur', () => { if (askFocused && !picking && !askPauseTimer) hideAsk(); if (mergeAskFocused) closeMergeAsk(mergeAskFocused, true); });
 
 // 호버 판정 — 클릭 투과 중에도 mousemove 는 넘어오니 좌표로 본다
-function updateHover(el) {
+function updateHover(el, moved = false) {
   const onChar = !!el?.closest('#char-wrap');
   const onAsk = !!el?.closest('#ask, #char-wrap, #stack .item'); // 말풍선(＋ 로 띄운 칩·그 답) 위에 있는 동안도 입력창을 닫지 않는다
   if (el && !onChar) hoverArmed = true;
   // 입력창은 더블클릭으로 연다. 다만 설정이 켜져 있고 패널이 열려 있으면 캐릭터 위에 2초 머물러도 뜬다(패널을 안 건드리고 말 걸기)
-  hoverAsk.move(onChar);
+  hoverAsk.move(onChar, moved); // 실제 마우스 움직임일 때만 2초 타이머를 시작(재판정·커서 폴링으론 시작 안 함)
   // 입력 안 했는데 마우스가 떠나면 잠시 뒤 닫는다
   if (askOpen && !onAsk && !askInput.value && !tray.has() && !picking && !leaveTimer && !askPauseTimer) { // 잠깐 숨긴 동안은 닫지 않는다
     leaveTimer = setTimeout(() => { leaveTimer = null; if (!askInput.value && !tray.has() && !picking && !askPauseTimer) hideAsk(); }, LEAVE_HIDE);
@@ -1086,7 +1086,8 @@ function setInteractive(v) {
   cy.setInteractive(v);
 }
 
-function recheckHit() {
+function recheckHit(moved = false) {
+  moved = moved === true; // requestAnimationFrame 이 시각을 넘기니 true 만 실제 움직임으로 친다
   if (staleHold(down, dragging, Date.now())) resetPress(); // 뗌을 놓친 누름이 호버 판정을 영영 막지 않게
   if (dragging || down) return;
   if (!last) {
@@ -1094,7 +1095,7 @@ function recheckHit() {
     return setInteractive(false);
   }
   const el = document.elementFromPoint(last.x, last.y);
-  updateHover(el);
+  updateHover(el, moved);
   setInteractive(!!el?.closest('.hit'));
 }
 
@@ -1127,7 +1128,7 @@ document.addEventListener('mousemove', (e) => {
     dragging = true;
     cy.dragStart();
   }
-  recheckHit();
+  recheckHit(true); // 진짜 mousemove 만 호버 입력창 타이머를 시작한다
 });
 // 윈도우: 메인이 물은 커서 위치(src/hit-watch.js). 넘겨받는 mousemove 가 끊겨도(마우스 훅이 빠짐) 이걸로 말풍선·단추를 다시 누를 수 있게 된다
 cy.onCursor?.((p) => {
