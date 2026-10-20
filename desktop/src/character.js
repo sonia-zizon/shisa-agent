@@ -150,6 +150,8 @@ export function characterAssets(id) {
 // 같아도 그림을 못 읽어 시사 그림으로 물러나 있으면(fellBack) — 켤 때 메인은 데몬 목록을 받기 전엔 사용자 캐릭터 그림을 주지 않는다(404)
 export const redrawCharacter = ({ cur, next, force = false, fellBack = false }) =>
   cur?.id !== next.id || (force && (fellBack || JSON.stringify(next) !== JSON.stringify(cur)));
+// 그 칸 목록에서 파일 이름(예: 'dance2')이 든 영상의 번호. 없으면 0
+export const variantIndexOf = (a, kind, file) => Math.max(0, variantsOf(a, kind).findIndex((x) => String(x?.src ?? '').endsWith(`/${file}.webm`)));
 // 그 칸의 영상 목록(없으면 [])
 export const variantsOf = (a, kind) => a?.variants?.[kind] ?? (a?.clips?.[kind] ? [a.clips[kind]] : []);
 // 영상 하나: 종류(plan·dance·cheer·lunch·study, 모르면 plan) + 번호(데몬 state.danceVariant · 앱이 고른 번호) → { src, poster, scene, kind, say? } | null
@@ -219,13 +221,14 @@ export function activityReducer(s, a) {
     }
     case 'danceEnd': {
       let n = s;
-      if (s.localDance) n = { ...n, localDance: false };
+      if (s.localDance) n = { ...n, localDance: false, localHold: false };
       if (s.dancing) n = { ...n, dancing: false, endedDance: s.danceId };
       return n;
     }
     // 앱이 스스로 추는 짧은 춤(뇌 연결 전 더블클릭 등) — 데몬과 끊겨 있어도 춘다
+    // hold: 끝낼 때까지 춘다(예약 알림 말풍선이 떠 있는 동안) — DANCE_MAX_MS 상한을 걸지 않는다
     case 'localDance':
-      return { ...s, localDance: !!a.on, ...(a.on ? { localClip: DANCE_CLIPS.includes(a.clip) ? a.clip : 'dance', localVariant: Number.isInteger(a.variant) && a.variant >= 0 ? a.variant : 0 } : {}) };
+      return { ...s, localDance: !!a.on, localHold: !!a.on && a.hold === true, ...(a.on ? { localClip: DANCE_CLIPS.includes(a.clip) ? a.clip : 'dance', localVariant: Number.isInteger(a.variant) && a.variant >= 0 ? a.variant : 0 } : {}) };
     case 'focus':
       return { ...s, focus: a.active ? (a.paused ? 'paused' : 'on') : null };
     case 'connection':

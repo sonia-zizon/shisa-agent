@@ -12,7 +12,7 @@ import { hasFiles, filesFromTransfer, ATTACH_ERRORS } from '../src/attachments.j
 import { normFocus, focusBubble, doingBubble, focusSend } from '../src/focus.js';
 import { leaveTimerConfig, leaveTimerText } from '../src/leave-timer.js';
 import { who, setWho } from './who.js';
-import { characterAssets, redrawCharacter, okCharacter, localSay, clipFor, danceClipOf, danceVariantOf, variantsOf, pickVariant, DANCE_MAX_MS, nextBlinkDelay, blinkPlan, initialActivity, activityReducer, viewOf, fitBox } from '../src/character.js';
+import { characterAssets, redrawCharacter, okCharacter, localSay, clipFor, variantIndexOf, danceClipOf, danceVariantOf, variantsOf, pickVariant, DANCE_MAX_MS, nextBlinkDelay, blinkPlan, initialActivity, activityReducer, viewOf, fitBox } from '../src/character.js';
 import { applyCharacters } from '../src/character-registry.js';
 import { ui, setLanguage } from '../src/lang.js';
 import { t, bindLanguage } from '../src/i18n.js';
@@ -182,7 +182,7 @@ function applyActivity() {
   wrap.classList.remove('blink');
   clearTimeout(danceCap);
   if (view === 'idle') return showVideo(null);
-  if (view === 'dancing') danceCap = setTimeout(() => dispatchActivity({ type: 'danceEnd' }), DANCE_MAX_MS);
+  if (view === 'dancing' && !(act.localDance && act.localHold)) danceCap = setTimeout(() => dispatchActivity({ type: 'danceEnd' }), DANCE_MAX_MS);
   if (sameView) showVideo(null); // 춤 종류만 바뀜(예: 칩 춤 → 데몬 응원) — 새 영상 첫 장면이 나올 때 다시 켠다
   startVideo(view);
 }
@@ -666,6 +666,20 @@ function render() {
   armExpiry();
   requestAnimationFrame(recheckHit);
   drawLeaveTimer(); // 말풍선이 생기고 사라지면 퇴근 타이머도 같이
+  syncBubbleDance(vis.some((b) => b.dance));
+}
+
+// 예약 알림 말풍선(dance)이 떠 있는 동안 춤(dance2) — 닫히면(✕·자동 닫힘) 멈춘다. 상한 없이(hold) 닫힐 때까지
+let bubbleDancing = false;
+function syncBubbleDance(want) {
+  if (want === bubbleDancing) return;
+  bubbleDancing = want;
+  if (want) {
+    clearTimeout(danceOff); // 앱이 혼자 추던 짧은 춤의 끝 타이머가 우리 춤을 끊지 않게
+    dispatchActivity({ type: 'localDance', on: true, clip: 'dance', variant: variantIndexOf(charA, 'dance', 'dance2'), hold: true });
+  } else if (act.localDance && act.localHold) {
+    dispatchActivity({ type: 'localDance', on: false });
+  }
 }
 
 cy.onBubble((raw) => showBubble(raw));

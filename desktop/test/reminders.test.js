@@ -64,3 +64,25 @@ test('reminderBubble: 기본은 몇 초 뒤 닫힘, 유지 옵션이면 안 사�
   assert.equal(sticky.ttlMs, null);
   assert.equal(sticky.closable, true);
 });
+
+test('예약 알림 말풍선은 춤 표시(dance)를 달고, 고정이어도 normalize 를 지난다', () => {
+  const r = cleanReminder({ ...base, sticky: true });
+  assert.equal(normalizeBubble(reminderBubble(r)).dance, true);
+  assert.equal(normalizeBubble(reminderBubble(r)).ttlMs, null);
+  assert.equal(normalizeBubble({ id: 'x', text: 'a', dance: 'yes' }).dance, undefined);
+});
+
+test('말풍선 동안 춤: hold 춤은 localHold, 끝나면 풀린다 · dance2 번호 찾기', async () => {
+  const { activityReducer, initialActivity, viewOf, variantIndexOf, characterAssets, clipFor } = await import('../src/character.js');
+  let s = activityReducer(initialActivity(), { type: 'localDance', on: true, clip: 'dance', variant: 1, hold: true });
+  assert.equal(viewOf(s), 'dancing');
+  assert.equal(s.localHold, true);
+  assert.equal(activityReducer(initialActivity(), { type: 'localDance', on: true, clip: 'dance', variant: 0 }).localHold, false);
+  s = activityReducer(s, { type: 'localDance', on: false });
+  assert.equal(viewOf(s), 'idle');
+  assert.equal(s.localHold, false);
+  const a = characterAssets('shisa');
+  assert.equal(variantIndexOf(a, 'dance', 'dance2'), 1);
+  assert.match(clipFor(a, 'dance', 1).src, /dance2\.webm$/);
+  assert.equal(variantIndexOf(a, 'dance', 'nope'), 0);
+});

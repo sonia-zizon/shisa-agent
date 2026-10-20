@@ -80,7 +80,7 @@ export function tick(list, now) {
 
 // 말풍선 payload(src/bubbles.js normalizeBubble 이 받는 모양). sticky 면 ✕ 로 닫을 때까지 둔다
 export function reminderBubble(r, now = Date.now()) {
-  const b = { id: `reminder-${r.id}-${now}`, text: r.text, kind: 'info', closable: true };
+  const b = { id: `reminder-${r.id}-${now}`, text: r.text, kind: 'info', closable: true, dance: true };
   if (r.sticky) b.sticky = true;
   else b.ttlMs = AUTO_CLOSE_MS;
   return b;
