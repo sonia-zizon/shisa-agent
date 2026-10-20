@@ -66,4 +66,7 @@ contextBridge.exposeInMainWorld('cy', {
   // 진행 중 말풍선: ▶ 로 켠 할 일(열린 것) · 할 일이 바뀜 알림
   doingGet: () => ipcRenderer.invoke('doing-get'),
   onTodosChanged: on('todos-changed'),
+  // 퇴근 타이머: 설정의 근무 시간 · 바뀜 알림(SSE status)
+  workHoursGet: () => ipcRenderer.invoke('work-hours-get'),
+  onWorkHoursChanged: on('work-hours-changed'),
 });

@@ -48,6 +48,7 @@ import { NEW_DAEMON_CONFIG, cleanSetupPatch, openSetupAtLaunch, setupView } from
 import { attachConsole, assembleBundle, collectLogFiles, createRing, formatLogLine, redact, shapeConnectorsSafe } from './src/debug-share.js';
 import { bundlePaths, launchdOwns, spawnDecision, daemonEnv, daemonArgs, loginItemPlan, loginItemHint, defaultLoginPref, daemonStatusKind, LAUNCHD_DAEMON, DAEMON_LOG } from './src/bundle.js';
 import { createDaemonHost, portFree } from './src/daemon-host.js';
+import { loadReminders, tick as reminderTick, reminderBubble } from './src/reminders.js';
 import { RELEASES_API, checkDue, newestRelease, shouldNotify, updateBubble } from './src/update-check.js';
 import { denied } from './src/denied.js';
 import { okCalendarColor, okEventsQuery } from './src/calendar-tab.js';
@@ -893,7 +894,7 @@ function onSSE({ event, data }) {
     sendPanel('focus', payload);
   }
   else if (event === 'open_panel') showPanel(normalizeSection(payload?.section));
-  else if (event === 'status') { lastStatus = normStatus(payload?.status); pushBrain(); }
+  else if (event === 'status') { lastStatus = normStatus(payload?.status); pushBrain(); send('work-hours-changed', {}); } // 데몬이 in 으로 근무 시간을 바꾸면 status 도 같이 온다 → 퇴근 타이머 다시 읽기
 }
 
 // 데몬 호출. POST 는 X-CY-Agent 헤더 + JSON 본문. 결과는 { ok, status, data } | { ok: false, error }
@@ -1313,6 +1314,7 @@ function setupIPC() {
     removeCalendar: (id) => removeCalendar(id),
     copyText: (text) => { clipboard.writeText(text); return { ok: true }; },
     appPrefs,
+    reminders: reminderStore,
     upload: (method, pathname, name, mime, bytes) => uploadBytes(method, pathname, name, mime, bytes),
     preload: path.join(__dirname, 'preload-settings.cjs'),
     html: path.join(__dirname, 'renderer', 'settings.html'),
@@ -1531,6 +1533,14 @@ function setupIPC() {
     const r = await request('GET', '/dashboard');
     if (!r.ok) return { ok: false, status: r.status };
     return { ok: true, todos: doingTodos(r.data?.todos).map((t) => ({ ...t, doing: true })) };
+  });
+  // 퇴근 타이머: 설정의 근무 시간(workStart·workEnd·workDays·leaveTimer)만 넘긴다
+  ipcMain.handle('work-hours-get', async (e) => {
+    if (!fromOurs(e)) return denied();
+    const r = await request('GET', '/settings');
+    if (!r.ok) return { ok: false, status: r.status };
+    const { workStart, workEnd, workDays, leaveTimer } = r.data ?? {};
+    return { ok: true, settings: { workStart, workEnd, workDays, leaveTimer } };
   });
   ipcMain.handle('focus-cmd', (e, cmd) => (fromOurs(e) && isFocusCmd(cmd) ? post(`/focus/${cmd}`) : denied()));
   ipcMain.handle('focus-stats', (e, from, to) => (fromOurs(e) && DAY_RE.test(String(from)) && DAY_RE.test(String(to))
@@ -2129,6 +2139,29 @@ async function checkForUpdate() {
   }
 }
 
+// ---- 예약 알림(src/reminders.js): 설정에서 정한 시각에 말풍선. state.json 의 reminders ----
+function checkReminders() {
+  try {
+    const cur = loadReminders(state.reminders);
+    if (!cur.length) return;
+    const { list, fire } = reminderTick(cur, new Date());
+    if (!fire.length) return;
+    state.reminders = list;
+    saveState();
+    for (const r of fire) send('bubble', reminderBubble(r));
+  } catch (e) {
+    if (DEBUG) console.error('[reminders]', e?.message ?? e);
+  }
+}
+const reminderStore = {
+  get: () => ({ ok: true, items: loadReminders(state.reminders) }),
+  set(items) {
+    state.reminders = items;
+    saveState();
+    return reminderStore.get();
+  },
+};
+
 // 설정 창 「이 앱」 칸
 const appPrefs = {
   get() {
@@ -2226,6 +2259,7 @@ if (SQUIRREL) {
     connectLoop();
     setTimeout(checkForUpdate, 30_000);
     setInterval(checkForUpdate, 60 * 60 * 1000);
+    setInterval(checkReminders, 15_000);
     refreshCaps(true);
     if (openSetupAtLaunch({ firstRun, env: process.env })) setTimeout(() => showPanel('setup'), 400);
 

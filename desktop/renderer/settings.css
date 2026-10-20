@@ -286,3 +286,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .cal-editor input[type="text"] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); min-width: 0; }
 .cal-editor .setup-gate { margin: 0; font-size: 12px; color: var(--err-fg); }
 .cal-editor .setup-gate.ok { color: var(--ok); }
+
+/* 예약 알림 */
+.rm-list { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.rm-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.rm-row.off { opacity: 0.6; }
+.rm-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rm-line input[type="text"] { flex: 1; min-width: 160px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; }
+.rm-line input[type="time"], .rm-line input[type="date"], .rm-line select { padding: 3px 6px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; }

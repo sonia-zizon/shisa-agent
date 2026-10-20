@@ -10,13 +10,15 @@ test('근무 시간 저장 본문: HH:MM·요일·켜기만 넘기고 이상한 
   assert.deepEqual(sanitizeSettingsPatch({ workStart: '09:30', lunchTime: '12:00', workEnd: '18:30' }), { workStart: '09:30', lunchTime: '12:00', workEnd: '18:30' });
   assert.deepEqual(sanitizeSettingsPatch({ workDays: [5, 1, 1] }), { workDays: [1, 5] });
   assert.deepEqual(sanitizeSettingsPatch({ startAlert: false, leaveAlert: true }), { startAlert: false, leaveAlert: true });
-  for (const bad of [{ workStart: '9:30' }, { workEnd: '24:00' }, { lunchTime: 1200 }, { workDays: [] }, { workDays: [7] }, { leaveAlert: 'no' }, { workHours: {} }]) {
+  for (const bad of [{ workStart: '9:30' }, { workEnd: '24:00' }, { lunchTime: 1200 }, { workDays: [] }, { workDays: [7] }, { leaveAlert: 'no' }, { leaveTimer: 'no' }, { workHours: {} }]) {
     assert.equal(sanitizeSettingsPatch(bad), null, JSON.stringify(bad));
   }
 });
 
 test('근무 시간 화면 값: 기본 09:00·12:00·18:00·월~금·다 켬, 요일은 하나 이상, 출근은 퇴근보다 앞', () => {
   assert.deepEqual(workHoursView({}), WORK_DEFAULT);
+  assert.deepEqual(sanitizeSettingsPatch({ leaveTimer: false }), { leaveTimer: false });
+  assert.equal(workHoursView({}).leaveTimer, true);
   assert.deepEqual(workHoursView({ workStart: 'x', workDays: [9], leaveAlert: false }), { ...WORK_DEFAULT, leaveAlert: false });
   assert.deepEqual(WORK_DAY_ORDER.map((d) => DAY_LABEL[d]).join(''), '월화수목금토일');
   assert.deepEqual(workDaysNext([1, 2, 3, 4, 5], 6, true), { workDays: [1, 2, 3, 4, 5, 6] });

@@ -78,6 +78,14 @@
       <div id="rem-err" class="ph-err" role="status"></div>
     </section>
 
+    <section class="card" aria-labelledby="h-rm">
+      <h2 id="h-rm" data-i18n="settings.h_rm">예약 알림</h2>
+      <p class="hint" data-i18n="settings.rm_hint">정한 시각에 캐릭터 말풍선으로 알려 줘요. 앱이 켜져 있을 때만 떠요. 여러 개 만들 수 있어요.</p>
+      <div id="rm-list" class="rm-list"></div>
+      <p><button id="rm-add" type="button" class="small primary" data-i18n="settings.rm_add">+ 알림 추가</button></p>
+      <div id="rm-err" class="ph-err" role="status"></div>
+    </section>
+
     <section class="card" aria-labelledby="h-cal">
       <h2 id="h-cal" data-i18n="settings.h_cal">일정 알림</h2>
       <p class="hint" data-i18n="settings.cal_hint">캘린더를 연결하면 일정 몇 분 전에 캐릭터가 춤추며 알려 줘요. 여러 개 고르면 그때마다 한 번씩 알려요.</p>
@@ -106,6 +114,7 @@
         <label class="toggle"><input id="start-on" type="checkbox"><span data-i18n="settings.start_on">출근 인사</span></label>
         <label class="toggle"><input id="lunch-on" type="checkbox"><span data-i18n="settings.lunch_on">점심시간 알림</span></label>
         <label class="toggle"><input id="leave-on" type="checkbox"><span data-i18n="settings.leave_on">퇴근 인사</span></label>
+        <label class="toggle"><input id="leave-timer-on" type="checkbox"><span data-i18n="settings.leave_timer">퇴근 타이머 표시</span></label>
       </div>
       <p class="hint" data-i18n="settings.work_note">출근 시각이 지나면 아침 인사를 해요. 점심은 점심 시각부터 한 시간 안에 점심 영상과 함께, 퇴근 10분 전에는 일정 알림 영상과 함께 인사해요. 같은 날 앱을 다시 켜도 또 뜨지 않아요.</p>
       <div id="work-err" class="ph-err" role="status"></div>

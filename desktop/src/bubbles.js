@@ -28,6 +28,7 @@ export function normalizeBubble(raw) {
   if (open) b.open = open;
   // 제안은 자동으로 사라지지 않는다
   if (kind === 'proposal') b.ttlMs = null;
+  else if (raw.sticky === true) b.ttlMs = null; // 예약 알림 「닫을 때까지 유지」: 시간이 지나도 안 사라진다(✕ 로 닫는다)
   else b.ttlMs = Number.isFinite(raw.ttlMs) && raw.ttlMs > 0 ? raw.ttlMs : DEFAULT_TTL;
   if (kind === 'proposal' && typeof raw.proposalId === 'string' && raw.proposalId) b.proposalId = raw.proposalId;
   // 머지 승인 말풍선(✓/✗/추가질문)은 proposalId 가 있어야

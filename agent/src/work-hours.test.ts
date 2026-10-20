@@ -26,7 +26,7 @@ test("기본값: 출근 09:00 · 점심 12:00 · 퇴근 18:00 · 월~금 · 알�
   const c = loadConfig({}, {});
   assert.equal(c.workStart, "09:00"); assert.equal(c.lunchTime, "12:00"); assert.equal(c.workEnd, "18:00");
   assert.deepEqual(c.workDays, [1, 2, 3, 4, 5]);
-  assert.equal(c.startAlert, true); assert.equal(c.leaveAlert, true); assert.equal(c.lunchAlert, true);
+  assert.equal(c.startAlert, true); assert.equal(c.leaveAlert, true); assert.equal(c.leaveTimer, true); assert.equal(c.lunchAlert, true);
   assert.equal(loadConfig({}, { lunchAlert: false, leaveAlert: false }).leaveAlert, false);
 });
 
@@ -111,7 +111,7 @@ test("설정: 근무 시간 저장·바로 반영, 잘못된 HH:MM·요일·출�
   const v = s.view();
   assert.equal(v.workStart, "09:00"); assert.equal(v.workEnd, "18:00"); assert.equal(v.lunchTime, "12:00");
   assert.deepEqual(v.workDays, [1, 2, 3, 4, 5]); assert.equal(v.startAlert, true); assert.equal(v.leaveAlert, true); assert.equal(v.lunchAlert, true);
-  for (const bad of [{ workEnd: "6:00" }, { workStart: "24:00" }, { lunchTime: "12:5" }, { workEnd: 1800 }, { workDays: [7] }, { workDays: [] }, { workDays: "월" }, { leaveAlert: "yes" }, { startAlert: 1 }]) {
+  for (const bad of [{ workEnd: "6:00" }, { workStart: "24:00" }, { lunchTime: "12:5" }, { workEnd: 1800 }, { workDays: [7] }, { workDays: [] }, { workDays: "월" }, { leaveAlert: "yes" }, { leaveTimer: "yes" }, { startAlert: 1 }]) {
     const r = s.put(bad);
     assert.equal(r.ok, false, JSON.stringify(bad));
     assert.equal((r as any).status, 400, JSON.stringify(bad));
@@ -122,6 +122,8 @@ test("설정: 근무 시간 저장·바로 반영, 잘못된 HH:MM·요일·출�
   const r = s.put({ workStart: "10:00", workEnd: "19:00", lunchTime: "12:30", workDays: [5, 1, 3], leaveAlert: false, startAlert: false });
   assert.ok(r.ok);
   assert.equal(cfg.workEnd, "19:00"); assert.deepEqual(cfg.workDays, [1, 3, 5]); assert.equal(cfg.leaveAlert, false);
+  const r2 = s.put({ leaveTimer: false }); assert.equal(r2.ok, true); assert.equal(cfg.leaveTimer, false);
+  assert.equal(JSON.parse(readFileSync(path, "utf8")).leaveTimer, false);
   const f = JSON.parse(readFileSync(path, "utf8"));
   assert.deepEqual([f.workStart, f.workEnd, f.lunchTime, f.workDays, f.leaveAlert, f.startAlert], ["10:00", "19:00", "12:30", [1, 3, 5], false, false]);
   assert.deepEqual(loadConfig({}, f).workDays, [1, 3, 5]);

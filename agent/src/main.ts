@@ -17,6 +17,7 @@ import { suggestTitle } from "./chat.ts";
 import { briefingDue } from "./briefing-sources.ts";
 import { loadCommands, SlashCommands } from "./commands.ts";
 import { createSlack } from "./slack/app.ts";
+import { dayOf, findTodayIn, findTodayInMcp, workHoursFromIn } from "./leave-in.ts";
 import { TodoCanvas, openDm } from "./slack/canvas.ts";
 import { SlackIngester } from "./ingest/slack.ts";
 import { learnFrom } from "./profile.ts";
@@ -215,10 +216,37 @@ async function weatherTick() {
   } finally { weatherBusy = false; }
 }
 const safeWeather = () => { weatherTick().catch((e: any) => console.warn("[weather] 알림:", e?.message ?? e)); };
-bus.onOverlay = () => { remindToday(true); safeWork(); };
+// 슬랙 in → 설정 근무 시간(leave-in.ts): 오늘 in 을 찾을 때까지 3분마다 채널을 읽고, 찾으면 workStart = in · workEnd = in+9시간으로 저장한다(날짜별로 한 번, 직접 고친 값은 다시 덮지 않는다). 슬랙이 api·mcp 연결일 때만
+let leaveInDay = "", leaveInAt = 0, leaveInBusy = false, leaveInApplied = "";
+async function leaveInTick() {
+  const direct = slackIngester.transport ? slackIngester.direct : undefined;
+  const sc = (cfg.connectors as any)?.slack;
+  const mcpServer: string | undefined = !direct && sc?.mode === "mcp" && typeof sc.server === "string" ? sc.server : undefined;
+  if ((!direct && !mcpServer) || leaveInBusy) return;
+  const now = new Date();
+  if (!workHoursOf(cfg as unknown as Record<string, unknown>).workDays.includes(now.getDay())) return;
+  if (leaveInDay !== dayOf(now)) { leaveInDay = dayOf(now); leaveInAt = 0; }
+  if (leaveInApplied === leaveInDay) return;
+  leaveInBusy = true;
+  try {
+    if (Date.now() - leaveInAt < 3 * 60e3) return;
+    leaveInAt = Date.now();
+    const start = direct ? await findTodayIn(direct, now) : await findTodayInMcp(cfg as any, mcpServer!, now);
+    if (!start) return;
+    leaveInApplied = leaveInDay; // 읽은 첫 in 은 한 번만 반영(넣지 못해도 다시 덮어쓰지 않는다)
+    const wh = workHoursFromIn(start);
+    if (!wh) { console.warn("[leave-in] 퇴근이 자정을 넘거나 출근 >= 퇴근이라 설정에 반영하지 않아요:", start.toISOString()); return; }
+    settings.put(wh);
+    pushStatus();
+    console.log(`[leave-in] 근무 시간 반영: ${wh.workStart}~${wh.workEnd}`);
+  } finally { leaveInBusy = false; }
+}
+const safeLeaveIn = () => { leaveInTick().catch((e: any) => console.warn("[leave-in] 알림:", e?.message ?? e)); };
+bus.onOverlay = () => { remindToday(true); safeWork(); safeLeaveIn(); };
 setInterval(() => {
   try { remindToday(false); } catch (e: any) { console.warn("[today] 알림:", e?.message ?? e); }
   safeWork();
+  safeLeaveIn();
 }, 60e3).unref?.();
 
 // 설정 창: 모델·브리핑 출처(바로 반영 + config.json) · 연결 상태(읽기만). KG 상태는 아래에서 kgBackfill 이 생긴 뒤에 붙는다

@@ -368,6 +368,23 @@ body.char-hidden #stage { visibility: hidden; }
 }
 #doing-text { font-size: 14px; font-weight: 650; color: var(--bubble-fg); overflow-wrap: anywhere; }
 
+/* ---- 퇴근 타이머: 다른 말풍선이 없을 때만 머리 위에 「⌛05:30:45」(누를 수 없다) ---- */
+#leave-timer {
+  position: relative;
+  margin-bottom: 10px;
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: var(--bubble-bg);
+  border: 1px solid var(--bubble-border);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--bubble-fg);
+  pointer-events: none;
+}
+#leave-timer[hidden] { display: none; }
+
 /* ---- 호버 입력창 / 진행 캡션 ---- */
 #ask {
   width: 240px;

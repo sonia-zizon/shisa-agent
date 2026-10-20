@@ -6,6 +6,7 @@ import { cleanUpload } from './attachments.js';
 import { sanitizeGuidelineAdd, sanitizeGuidelinePatch, okGuidelineId } from './guidelines.js';
 import { okBrainId, okCap } from './disconnect.js';
 import { okCalendarId, okCalendarName, okCalendarUrl } from './calendars.js';
+import { cleanReminders } from './reminders.js';
 import { denied } from './denied.js';
 import { t } from './i18n.js';
 
@@ -105,6 +106,13 @@ export function setupSettings(deps) {
   ipcMain.handle('settings-app-set', (e, patch) => {
     const p = isMine(e) && deps.appPrefs ? sanitizeAppPrefs(patch) : null;
     return p ? deps.appPrefs.set(p) : denied();
+  });
+
+  // 예약 알림(말풍선): 목록 읽기 · 통째로 저장(앱의 state.json)
+  ipcMain.handle('reminders-get', (e) => (isMine(e) && deps.reminders ? deps.reminders.get() : denied()));
+  ipcMain.handle('reminders-set', (e, items) => {
+    const list = isMine(e) && deps.reminders ? cleanReminders(items) : null;
+    return list ? deps.reminders.set(list) : denied();
   });
 
   // 캐릭터 만들기·고치기·지우기(데몬 /characters). 그림은 바이트로(채팅 첨부처럼), 저장 이름은 데몬이 짓는다

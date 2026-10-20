@@ -10,6 +10,7 @@ import { initialChat, chatReducer, isBusy, summarizeReply, stopTargets, busyCapt
 import { createAttachTray } from './attach-tray.js';
 import { hasFiles, filesFromTransfer, ATTACH_ERRORS } from '../src/attachments.js';
 import { normFocus, focusBubble, doingBubble, focusSend } from '../src/focus.js';
+import { leaveTimerConfig, leaveTimerText } from '../src/leave-timer.js';
 import { who, setWho } from './who.js';
 import { characterAssets, redrawCharacter, okCharacter, localSay, clipFor, danceClipOf, danceVariantOf, variantsOf, pickVariant, DANCE_MAX_MS, nextBlinkDelay, blinkPlan, initialActivity, activityReducer, viewOf, fitBox } from '../src/character.js';
 import { applyCharacters } from '../src/character-registry.js';
@@ -664,6 +665,7 @@ function render() {
   });
   armExpiry();
   requestAnimationFrame(recheckHit);
+  drawLeaveTimer(); // 말풍선이 생기고 사라지면 퇴근 타이머도 같이
 }
 
 cy.onBubble((raw) => showBubble(raw));
@@ -710,6 +712,7 @@ function applyUiLang() {
   set('doing-label', { text: ui('doing') });
   set('caption-stop', { title: ui('stop'), 'aria-label': t('overlay.stop_label') });
   set('focus', { 'aria-label': t('overlay.focus_aria') });
+  set('leave-timer', { 'aria-label': t('overlay.leave_timer_aria') });
   set('doing', { 'aria-label': t('overlay.doing_aria'), title: ui('open_todos') });
   set('ask-tray', { 'aria-label': t('overlay.tray_aria') });
   set('focus-label', { text: ui('focus_on') }); // 집중 중이면 drawFocus 가 곧 그때 글로
@@ -814,6 +817,7 @@ function drawDoing() {
     doingEl.title = v.more ? t('overlay.doing_list', { list: doingTodos.filter((x) => x.doing === true).map((x) => x.title).join(', ') }) : ui('open_todos');
   }
   if (was !== !!v) requestAnimationFrame(recheckHit);
+  drawLeaveTimer(); // 진행 중·집중 말풍선이 뜨면 퇴근 타이머는 숨는다
 }
 let doingSeq = 0;
 async function loadDoing() {
@@ -827,6 +831,30 @@ let doingTimer = null;
 cy.onTodosChanged?.(() => { clearTimeout(doingTimer); doingTimer = setTimeout(loadDoing, 300); }); // 할 일이 바뀜(SSE dashboard) — 몰려 와도 한 번
 doingEl.addEventListener('click', (e) => { e.stopPropagation(); cy.openPanel('todos'); });
 loadDoing();
+
+// ---- 퇴근 타이머: 다른 알림·진행 중·집중 말풍선이 없을 때만 「⌛HH:MM:SS」를 1초마다. 근무 시간은 설정(GET /settings)에서 ----
+var leaveEl = document.getElementById('leave-timer'); // var: 위 render·drawDoing 이 이보다 먼저 불려도 안 터지게(호이스팅)
+let leaveCfg = leaveTimerConfig(null);
+let leaveShown = false;
+function drawLeaveTimer() {
+  if (!leaveEl) return;
+  const idle = !queue.visible().length && focusEl.hidden && doingEl.hidden;
+  const text = idle ? leaveTimerText(leaveCfg) : null;
+  if (text) leaveEl.textContent = text;
+  leaveEl.hidden = !text;
+  if (leaveShown !== !!text) requestAnimationFrame(recheckHit);
+  leaveShown = !!text;
+}
+async function loadWorkHours() {
+  const r = await cy.workHoursGet?.().catch(() => null);
+  if (!r?.ok) return; // 못 읽었으면 그대로(데몬이 잠깐 끊긴 것)
+  leaveCfg = leaveTimerConfig(r.settings);
+  drawLeaveTimer();
+}
+cy.onWorkHoursChanged?.(() => loadWorkHours());
+setInterval(drawLeaveTimer, 1000);
+setInterval(loadWorkHours, 60e3); // 설정 창에서 바꾼 값도 1분 안에
+loadWorkHours();
 
 // ---- 채팅: 생각 중 표시 + 내 질문의 답은 말풍선 ----
 const caption = document.getElementById('caption');

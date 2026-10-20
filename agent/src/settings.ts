@@ -67,7 +67,7 @@ export type SettingsView = {
   calendarAlert: CalendarAlertConfig; // 일정 알림: 몇 분 전에 알릴지([] = 끔)
   lunchAlert: boolean; // 점심시간 알림(점심 시각부터 한 시간 안에 하루 한 번, 기본 켬)
   // 근무 시간(work-hours.ts): 출근·점심·퇴근 HH:MM, 요일(0 일~6 토), 출근 인사·퇴근 10분 전 인사
-  workStart: string; lunchTime: string; workEnd: string; workDays: number[]; startAlert: boolean; leaveAlert: boolean;
+  workStart: string; lunchTime: string; workEnd: string; workDays: number[]; startAlert: boolean; leaveAlert: boolean; leaveTimer: boolean;
   // 날씨 알리미(weather.ts): 고른 지역(null = 꺼짐)·출근 후 브리핑 다음·퇴근 20분 전·정한 시각 + 출처(Open-Meteo)
   weather: WeatherConfig & { attribution: typeof ATTRIBUTION };
   // 뇌: 키는 절대 내보내지 않는다 — 있나 없나만
@@ -106,7 +106,7 @@ export type SettingsPatch = {
   onboarded?: boolean; readSessions?: boolean;
   calendarAlert?: CalendarAlertConfig;
   lunchAlert?: boolean;
-  workStart?: string; lunchTime?: string; workEnd?: string; workDays?: number[]; startAlert?: boolean; leaveAlert?: boolean;
+  workStart?: string; lunchTime?: string; workEnd?: string; workDays?: number[]; startAlert?: boolean; leaveAlert?: boolean; leaveTimer?: boolean;
   weather?: WeatherPatch; // 날씨: 준 칸만 바꾼다(place: null = 지역 지우기 → 날씨 꺼짐)
   character?: CharacterId;
   language?: Lang;
@@ -127,7 +127,7 @@ export class ConfigFileError extends Error {}
 export function validatePatch(body: unknown, cfg: Pick<Config, "models">): SettingsPatch {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new SettingsError("json object required");
   const b = body as Record<string, unknown>;
-  for (const k of Object.keys(b)) if (!["models", "brainModels", "briefing", "phrases", "autoMerge", "brain", "user", "repoRoots", "todayReminder", "onboarded", "readSessions", "calendarAlert", "lunchAlert", "workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "weather", "character", "coding", "language"].includes(k)) throw new SettingsError(`unknown key: ${k}`);
+  for (const k of Object.keys(b)) if (!["models", "brainModels", "briefing", "phrases", "autoMerge", "brain", "user", "repoRoots", "todayReminder", "onboarded", "readSessions", "calendarAlert", "lunchAlert", "workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "leaveTimer", "weather", "character", "coding", "language"].includes(k)) throw new SettingsError(`unknown key: ${k}`);
   const out: SettingsPatch = {};
   if (b.models !== undefined) {
     if (!b.models || typeof b.models !== "object" || Array.isArray(b.models)) throw new SettingsError("models must be an object");
@@ -212,7 +212,7 @@ export function validatePatch(body: unknown, cfg: Pick<Config, "models">): Setti
     if (!d.length) throw new SettingsError(tr("status.no_days"));
     out.workDays = d;
   }
-  for (const k of ["onboarded", "readSessions", "lunchAlert", "startAlert", "leaveAlert"] as const) {
+  for (const k of ["onboarded", "readSessions", "lunchAlert", "startAlert", "leaveAlert", "leaveTimer"] as const) {
     if (b[k] === undefined) continue;
     if (typeof b[k] !== "boolean") throw new SettingsError(`${k} must be true or false`);
     out[k] = b[k] as boolean;
@@ -374,7 +374,7 @@ export function mergeConfigFile(path: string, patch: SettingsPatch): void {
   if (patch.readSessions !== undefined) next.readSessions = patch.readSessions;
   if (patch.calendarAlert) next.calendarAlert = patch.calendarAlert; // [] 도 그대로 쓴다(끔)
   if (patch.lunchAlert !== undefined) next.lunchAlert = patch.lunchAlert;
-  for (const k of ["workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert"] as const) if (patch[k] !== undefined) next[k] = patch[k];
+  for (const k of ["workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "leaveTimer"] as const) if (patch[k] !== undefined) next[k] = patch[k];
   if (patch.weather) {
     const w = mergeWeather(weatherOf(cur.weather), patch.weather);
     next.weather = { ...(w.place ? { place: w.place } : {}), morning: w.morning, leave: w.leave, times: w.times };
@@ -515,7 +515,7 @@ export class Settings {
     if (patch.readSessions !== undefined) this.cfg.readSessions = patch.readSessions;
     if (patch.todayReminder) this.cfg.todayReminder = { ...patch.todayReminder, times: [...patch.todayReminder.times] }; // main 이 1분마다 cfg 를 읽으니 바로
     if (patch.lunchAlert !== undefined) this.cfg.lunchAlert = patch.lunchAlert; // main 이 1분마다 cfg 를 읽으니 바로
-    for (const k of ["workStart", "lunchTime", "workEnd", "startAlert", "leaveAlert"] as const) if (patch[k] !== undefined) (this.cfg as any)[k] = patch[k];
+    for (const k of ["workStart", "lunchTime", "workEnd", "startAlert", "leaveAlert", "leaveTimer"] as const) if (patch[k] !== undefined) (this.cfg as any)[k] = patch[k];
     if (patch.workDays) this.cfg.workDays = [...patch.workDays];
     if (patch.weather) this.cfg.weather = mergeWeather(weatherOf(this.cfg.weather), patch.weather); // main 이 1분마다 cfg 를 읽으니 바로
     if (patch.calendarAlert) this.cfg.calendarAlert = { minutesBefore: [...patch.calendarAlert.minutesBefore] }; // CalendarSync 가 확인할 때마다 cfg 를 읽으니 바로

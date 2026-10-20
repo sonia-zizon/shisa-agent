@@ -69,7 +69,7 @@ function settingsData(lang) {
     repoRoots: ['/Users/me/src'],
     todayReminder: { mode: 'auto', everyHours: 2, times: ['10:00', '15:30'] },
     calendarAlert: { minutesBefore: [20, 10] },
-    workStart: '09:00', lunchTime: '12:00', workEnd: '18:00', workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: false,
+    workStart: '09:00', lunchTime: '12:00', workEnd: '18:00', workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: false, leaveTimer: true,
     weather: { place: { name: 'Shibuya', label: 'Shibuya, Tokyo, Japan', latitude: 35.66, longitude: 139.7, timezone: 'Asia/Tokyo' }, morning: true, leave: true, times: ['13:00'] },
     autoMerge: ['my-name/my-app'],
     phrases: [

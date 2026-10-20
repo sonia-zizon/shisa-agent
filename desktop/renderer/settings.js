@@ -299,6 +299,113 @@ async function loadAppPrefs() {
   if (r?.ok) { appPrefs = r; renderAppPrefs(); }
 }
 
+// ---- 예약 알림(말풍선): 앱의 state.json. 바꿀 때마다 목록 통째로 저장 ----
+let reminders = [];
+const RM_REPEATS = [['daily', 'settings.rm_daily'], ['weekdays', 'settings.rm_weekdays'], ['days', 'settings.rm_days'], ['once', 'settings.rm_once']];
+const rmToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+async function saveReminders(next, rerender = true) {
+  const res = await cy.setReminders?.(next).catch(() => null);
+  const err = $('rm-err');
+  if (res?.ok) {
+    reminders = res.items;
+    err.textContent = '';
+    flash(t('settings.saved'));
+  } else {
+    err.textContent = t('settings.rm_err');
+    flash(t('settings.rm_err'), true);
+  }
+  if (rerender || !res?.ok) renderReminders();
+}
+function renderReminders() {
+  const box = $('rm-list');
+  if (!box) return;
+  box.replaceChildren();
+  if (!reminders.length) box.append(el('p', 'hint', t('settings.rm_empty')));
+  const patch = (id, p, rerender = true) => saveReminders(reminders.map((r) => (r.id === id ? { ...r, ...p, last: undefined } : r)), rerender);
+  for (const r of reminders) {
+    const row = el('div', `rm-row${r.enabled ? '' : ' off'}`);
+    const l1 = el('div', 'rm-line');
+    const on = el('input');
+    on.type = 'checkbox';
+    on.checked = r.enabled;
+    on.setAttribute('aria-label', t('settings.rm_on_aria'));
+    on.addEventListener('change', () => patch(r.id, { enabled: on.checked }));
+    const time = el('input');
+    time.type = 'time';
+    time.required = true;
+    time.value = r.time;
+    time.setAttribute('aria-label', t('settings.rm_time_aria'));
+    time.addEventListener('change', () => { if (time.value) patch(r.id, { time: time.value }); });
+    const rep = el('select');
+    rep.setAttribute('aria-label', t('settings.rm_repeat_aria'));
+    for (const [v, k] of RM_REPEATS) { const o = el('option', null, t(k)); o.value = v; o.selected = r.repeat === v; rep.append(o); }
+    rep.addEventListener('change', () => {
+      const p = { repeat: rep.value };
+      if (rep.value === 'days' && !r.days?.length) p.days = [1, 2, 3, 4, 5];
+      if (rep.value === 'once' && !r.date) p.date = rmToday();
+      patch(r.id, p);
+    });
+    const del = el('button', 'small ghost', t('settings.rm_delete'));
+    del.type = 'button';
+    del.addEventListener('click', () => saveReminders(reminders.filter((x) => x.id !== r.id)));
+    l1.append(on, time, rep);
+    if (r.repeat === 'once') {
+      const date = el('input');
+      date.type = 'date';
+      date.required = true;
+      date.value = r.date || rmToday();
+      date.setAttribute('aria-label', t('settings.rm_date_aria'));
+      date.addEventListener('change', () => { if (date.value) patch(r.id, { date: date.value }); });
+      l1.append(date);
+    }
+    l1.append(del);
+    row.append(l1);
+    if (r.repeat === 'days') {
+      const chips = el('div', 'toggles');
+      chips.setAttribute('role', 'group');
+      for (const d of WORK_DAY_ORDER) {
+        const lab = el('label', `toggle${r.days.includes(d) ? '' : ' off'}`);
+        const cb = el('input');
+        cb.type = 'checkbox';
+        cb.checked = r.days.includes(d);
+        cb.addEventListener('change', () => {
+          const days = cb.checked ? [...r.days, d] : r.days.filter((x) => x !== d);
+          if (!days.length) { cb.checked = true; return; } // 요일은 하나 이상
+          patch(r.id, { days });
+        });
+        lab.append(cb, document.createTextNode(DAY_LABEL[d]));
+        chips.append(lab);
+      }
+      row.append(chips);
+    }
+    const l2 = el('div', 'rm-line');
+    const text = el('input');
+    text.type = 'text';
+    text.maxLength = 100;
+    text.value = r.text;
+    text.placeholder = t('settings.rm_text_ph');
+    text.setAttribute('aria-label', t('settings.rm_text_aria'));
+    text.addEventListener('change', () => { if (text.value.trim()) patch(r.id, { text: text.value.trim() }, false); else text.value = r.text; });
+    const sticky = el('label', 'toggle');
+    const sc = el('input');
+    sc.type = 'checkbox';
+    sc.checked = r.sticky;
+    sc.addEventListener('change', () => patch(r.id, { sticky: sc.checked }, false));
+    sticky.append(sc, document.createTextNode(t('settings.rm_sticky')));
+    l2.append(text, sticky);
+    row.append(l2);
+    box.append(row);
+  }
+}
+async function loadReminders() {
+  const r = await cy.getReminders?.().catch(() => null);
+  if (r?.ok) { reminders = r.items; renderReminders(); }
+}
+$('rm-add')?.addEventListener('click', () => {
+  const id = `rm-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  saveReminders([...reminders, { id, text: t('settings.rm_default_text'), time: '12:20', repeat: 'weekdays', sticky: false, enabled: true }]);
+});
+
 // ---- 브리핑 출처 ----
 function renderSources() {
   const box = $('sources');
@@ -942,6 +1049,7 @@ function renderWork() {
   $('start-on').checked = v.startAlert;
   $('lunch-on').checked = v.lunchAlert;
   $('leave-on').checked = v.leaveAlert;
+  $('leave-timer-on').checked = v.leaveTimer;
   const box = $('work-days');
   box.replaceChildren();
   for (const d of WORK_DAY_ORDER) {
@@ -978,6 +1086,7 @@ for (const [id, k, on, off] of [
   ['start-on', 'startAlert', 'settings.start_on_done', 'settings.start_off_done'],
   ['lunch-on', 'lunchAlert', 'settings.lunch_on_done', 'settings.lunch_off_done'],
   ['leave-on', 'leaveAlert', 'settings.leave_on_done', 'settings.leave_off_done'],
+  ['leave-timer-on', 'leaveTimer', 'settings.leave_timer_on_done', 'settings.leave_timer_off_done'],
 ]) {
   $(id).addEventListener('change', async (e) => {
     const cb = e.target;
@@ -1311,6 +1420,7 @@ async function load() {
 }
 
 loadAppPrefs();
+loadReminders();
 const guidelines = mountGuidelines(document, cy, flash); // 행동 지침(src/guidelines.js)
 guidelines.load();
 $('check-all').addEventListener('click', checkAll);
@@ -1336,7 +1446,7 @@ window.addEventListener('focus', () => { if (!busy.size) cy.getConnections().the
 // 언어가 바뀌면(메인 'lang' → src/i18n.js bindLanguage): HTML 정적 글(data-i18n)은 bindLanguage 가 다시 넣고,
 // 그려 둔 칸은 여기서 다시 그린 뒤 데몬이 그 언어로 주는 글(출처 이름·문구 묶음·모델 칸·연결 줄)도 다시 받는다. 고치던 대사는 그대로 둔다
 function renderAll() {
-  renderAppPrefs(); renderBrains(); renderModels(); renderSources(); renderLocal(); renderReminder(); renderCalAlert();
+  renderAppPrefs(); renderReminders(); renderBrains(); renderModels(); renderSources(); renderLocal(); renderReminder(); renderCalAlert();
   renderWork(); renderWeather(); renderAutoMerge(); renderPhrases(); renderCharacter(); renderLang(); renderRows();
   if (editing && !editDirty) renderCharEditor();
   guidelines.render();
