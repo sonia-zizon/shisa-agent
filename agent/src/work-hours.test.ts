@@ -192,3 +192,8 @@ test("점심 영상: 먹는 영상이 있으면 그것, 없으면(모몽가) 그
   assert.deepEqual(characterClips("lunch").map((x) => x.file), ["plan-aaaaaaaa.gif"], "점심 칸이 비면 일정 알림");
   bus.activity.stop();
 });
+
+test("autoWorkHours: 기본 켬, false 만 끔 + put 반영", () => {
+  assert.equal(workHoursOf({}).autoWorkHours, true);
+  assert.equal(workHoursOf({ autoWorkHours: false }).autoWorkHours, false);
+});

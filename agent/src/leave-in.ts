@@ -25,6 +25,8 @@ export function parseIn(text: string, msgTs: number): Date | null {
   return null;
 }
 
+// 설정 「in 기준 근무시간 자동반영」(autoWorkHours, 기본 켬). 꺼져 있으면 in 이 있어도 설정을 건드리지 않는다
+export const autoWorkHoursOn = (cfg: { autoWorkHours?: boolean }) => cfg.autoWorkHours !== false;
 export const leaveAtOf = (start: Date) => new Date(start.getTime() + WORK_SPAN_MIN * 60e3);
 export const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 export const dayOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

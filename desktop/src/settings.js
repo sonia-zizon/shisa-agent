@@ -115,7 +115,7 @@ export function sanitizeSettingsPatch(p) {
     if (!d || !d.length) return null;
     out.workDays = d;
   }
-  for (const k of ['startAlert', 'leaveAlert', 'leaveTimer']) {
+  for (const k of ['startAlert', 'leaveAlert', 'leaveTimer', 'autoWorkHours']) {
     if (p[k] === undefined) continue;
     if (typeof p[k] !== 'boolean') return null;
     out[k] = p[k];
@@ -137,8 +137,8 @@ export function sanitizeSettingsPatch(p) {
 
 // ---- 근무 시간(GET /settings workStart·lunchTime·workEnd·workDays·startAlert·lunchAlert·leaveAlert·leaveTimer) ----
 // 데몬 agent/src/work-hours.ts 와 같은 규칙. 요일 칩은 월요일부터
-export const WORK_KEYS = ['workStart', 'lunchTime', 'workEnd', 'workDays', 'startAlert', 'leaveAlert', 'leaveTimer'];
-export const WORK_DEFAULT = { workStart: '09:00', lunchTime: '12:00', workEnd: '18:00', workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true };
+export const WORK_KEYS = ['workStart', 'lunchTime', 'workEnd', 'workDays', 'startAlert', 'leaveAlert', 'leaveTimer', 'autoWorkHours'];
+export const WORK_DEFAULT = { workStart: '09:00', lunchTime: '12:00', workEnd: '18:00', workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true, autoWorkHours: true };
 export const WORK_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 // 요일 칩 글(0 = 일요일, 지금 언어). 읽을 때마다 그 언어로
 export const DAY_LABEL = Object.defineProperties([], Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((i) => [i, { get: () => weekdays()[i], enumerable: true }])));
@@ -155,7 +155,7 @@ export function workHoursView(s) {
     lunchTime: okHhmm(o.lunchTime) ? o.lunchTime : WORK_DEFAULT.lunchTime,
     workEnd: okHhmm(o.workEnd) ? o.workEnd : WORK_DEFAULT.workEnd,
     workDays: cleanWorkDays(o.workDays) ?? [...WORK_DEFAULT.workDays],
-    startAlert: o.startAlert !== false, lunchAlert: o.lunchAlert !== false, leaveAlert: o.leaveAlert !== false, leaveTimer: o.leaveTimer !== false,
+    startAlert: o.startAlert !== false, lunchAlert: o.lunchAlert !== false, leaveAlert: o.leaveAlert !== false, leaveTimer: o.leaveTimer !== false, autoWorkHours: o.autoWorkHours !== false,
   };
 }
 // 요일 칩을 켜고 끄기 → { workDays } | { error }(하나도 안 남으면)

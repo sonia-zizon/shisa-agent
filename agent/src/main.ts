@@ -3,7 +3,7 @@ import { installFileLog, stallLag } from "./log.ts";
 import { loadConfig } from "./config.ts";
 import { DEFAULT_TODAY_REMINDER } from "./daily-plan.ts";
 import { localAsk, localLine } from "./local-mode.ts";
-import { LEAVE_BEFORE_MIN, WorkAlerts, minsToLeave, workHoursOf } from "./work-hours.ts";
+import { LEAVE_BEFORE_MIN, WORK_KEYS, WorkAlerts, minsToLeave, workHoursOf } from "./work-hours.ts";
 import { Weather, setWeatherPeek, weatherDue, weatherLine, weatherOf } from "./weather.ts";
 import { failText as weatherFailText, noPlaceText as weatherNoPlaceText, sourceNote as weatherSourceNote, weatherText } from "./weather-say.ts";
 import { Store } from "./store.ts";
@@ -17,7 +17,7 @@ import { suggestTitle } from "./chat.ts";
 import { briefingDue } from "./briefing-sources.ts";
 import { loadCommands, SlashCommands } from "./commands.ts";
 import { createSlack } from "./slack/app.ts";
-import { dayOf, findTodayIn, findTodayInMcp, workHoursFromIn } from "./leave-in.ts";
+import { autoWorkHoursOn, dayOf, findTodayIn, findTodayInMcp, workHoursFromIn } from "./leave-in.ts";
 import { TodoCanvas, openDm } from "./slack/canvas.ts";
 import { SlackIngester } from "./ingest/slack.ts";
 import { learnFrom } from "./profile.ts";
@@ -222,7 +222,7 @@ async function leaveInTick() {
   const direct = slackIngester.transport ? slackIngester.direct : undefined;
   const sc = (cfg.connectors as any)?.slack;
   const mcpServer: string | undefined = !direct && sc?.mode === "mcp" && typeof sc.server === "string" ? sc.server : undefined;
-  if ((!direct && !mcpServer) || leaveInBusy) return;
+  if ((!direct && !mcpServer) || leaveInBusy || !autoWorkHoursOn(cfg)) return;
   const now = new Date();
   if (!workHoursOf(cfg as unknown as Record<string, unknown>).workDays.includes(now.getDay())) return;
   if (leaveInDay !== dayOf(now)) { leaveInDay = dayOf(now); leaveInAt = 0; }
@@ -290,7 +290,7 @@ characterStore.onChange = ({ removedCurrent }) => {
   bus.characterChanged(); // 이름·대사가 바뀐 지금 캐릭터도 바로
 };
 const settings = new Settings(cfg, { onChange: (keys) => {
-  if (keys.some((k) => k === "brain" || k === "user" || k === "onboarded" || k === "language")) pushStatus(); // language: 상태 줄 글도 새 언어로
+  if (keys.some((k) => k === "brain" || k === "user" || k === "onboarded" || k === "language" || (WORK_KEYS as readonly string[]).includes(k))) pushStatus(); // WORK_KEYS: 앱 퇴근 타이머가 바로 다시 읽게 // language: 상태 줄 글도 새 언어로
   if (keys.includes("onboarded") && modelWorkAllowed(cfg)) setTimeout(() => onboardedNow(), 0); // 마법사를 막 마침 → 첫 정리
   else if (keys.includes("readSessions") && sessionsAllowed(cfg)) setTimeout(() => ingest(), 0);
   if (keys.includes("calendarAlert")) calendar.check(); // 알림 시각을 바로 다시 잡는다

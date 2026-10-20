@@ -1050,6 +1050,7 @@ function renderWork() {
   $('lunch-on').checked = v.lunchAlert;
   $('leave-on').checked = v.leaveAlert;
   $('leave-timer-on').checked = v.leaveTimer;
+  $('auto-work-hours-on').checked = v.autoWorkHours;
   const box = $('work-days');
   box.replaceChildren();
   for (const d of WORK_DAY_ORDER) {
@@ -1087,6 +1088,7 @@ for (const [id, k, on, off] of [
   ['lunch-on', 'lunchAlert', 'settings.lunch_on_done', 'settings.lunch_off_done'],
   ['leave-on', 'leaveAlert', 'settings.leave_on_done', 'settings.leave_off_done'],
   ['leave-timer-on', 'leaveTimer', 'settings.leave_timer_on_done', 'settings.leave_timer_off_done'],
+  ['auto-work-hours-on', 'autoWorkHours', 'settings.auto_work_hours_on_done', 'settings.auto_work_hours_off_done'],
 ]) {
   $(id).addEventListener('change', async (e) => {
     const cb = e.target;

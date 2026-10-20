@@ -18,13 +18,14 @@ export type WorkHours = {
   lunchAlert: boolean;
   leaveAlert: boolean;
   leaveTimer: boolean; // 캐릭터 말풍선 자리에 퇴근까지 남은 시간(⌛HH:MM:SS) 표시
+  autoWorkHours: boolean; // 슬랙 in 이 확인되면 근무 시간(출근 = in, 퇴근 = in + 9시간)을 설정에 자동 반영(leave-in.ts)
 };
 export const WORK_DEFAULTS: Readonly<WorkHours> = Object.freeze({
-  workStart: "09:00", lunchTime: "12:00", workEnd: "18:00", workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true,
+  workStart: "09:00", lunchTime: "12:00", workEnd: "18:00", workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true, autoWorkHours: true,
 });
 export const LEAVE_BEFORE_MIN = 10; // 퇴근 몇 분 전에 인사할지
 export const LUNCH_SPAN_MIN = 60; // 점심 시각부터 이만큼 안에 한 번
-export const WORK_KEYS = ["workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "leaveTimer"] as const;
+export const WORK_KEYS = ["workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "leaveTimer", "autoWorkHours"] as const;
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -46,7 +47,7 @@ export function workHoursOf(f: Record<string, unknown> = {}): WorkHours {
     workStart, workEnd,
     lunchTime: isHhmm(f.lunchTime) ? f.lunchTime : WORK_DEFAULTS.lunchTime,
     workDays: cleanDays(f.workDays) ?? [...WORK_DEFAULTS.workDays],
-    startAlert: alertOf(f.startAlert), lunchAlert: alertOf(f.lunchAlert), leaveAlert: alertOf(f.leaveAlert), leaveTimer: alertOf(f.leaveTimer),
+    startAlert: alertOf(f.startAlert), lunchAlert: alertOf(f.lunchAlert), leaveAlert: alertOf(f.leaveAlert), leaveTimer: alertOf(f.leaveTimer), autoWorkHours: alertOf(f.autoWorkHours),
   };
 }
 
