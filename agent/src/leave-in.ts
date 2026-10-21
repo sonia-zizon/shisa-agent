@@ -3,8 +3,28 @@
 //  - 퇴근 = 출근 + 9시간(근무 8 + 점심 1). 오늘 in 이 없으면 아무것도 바꾸지 않는다
 import type { SlackDirect } from "./ingest/slack-api.ts";
 
-export const LEAVE_IN_CHANNEL = "CG4B7EVPH";
-export const LEAVE_IN_USER = "UHSCT53SA";
+// 채널·멤버 ID 는 설정(leaveInChannel · leaveInUser)에서만 읽는다(코드에 박아 두지 않는다 — 다른 사람 설치본이 남의 in 을 읽지 않게)
+// 채널: 슬랙 채널 링크(…/archives/C0123ABCD 또는 …/C0123ABCD?thread_ts=…)나 ID(C·G·D 로 시작). 맞지 않으면 null
+export function parseChannel(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+  if (/^[CGD][A-Z0-9]{6,}$/.test(s)) return s;
+  const m = /\/(C[A-Z0-9]{6,})(?:[/?#]|$)/.exec(s);
+  return m ? m[1] : null;
+}
+// 멤버 ID: U 또는 W 로 시작하는 대문자·숫자. 맞지 않으면 null
+export function parseUser(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  return /^[UW][A-Z0-9]{6,}$/.test(s) ? s : null;
+}
+export type LeaveInTarget = { channel: string; user: string };
+// 설정에서 읽을 곳: 둘 다 올바를 때만(하나라도 비거나 틀리면 null = 자동반영 불가)
+export function leaveInTarget(cfg: { leaveInChannel?: string; leaveInUser?: string }): LeaveInTarget | null {
+  const channel = parseChannel(cfg.leaveInChannel), user = parseUser(cfg.leaveInUser);
+  return channel && user ? { channel, user } : null;
+}
 export const WORK_SPAN_MIN = 9 * 60;
 
 // 「in」 메시지 → 출근 시각. in 이 아니거나 시간 모양이 이상하면 null. msgTs: 슬랙 ts(초)
@@ -25,14 +45,14 @@ export function parseIn(text: string, msgTs: number): Date | null {
   return null;
 }
 
-// 설정 「in 기준 근무시간 자동반영」(autoWorkHours, 기본 켬). 꺼져 있으면 in 이 있어도 설정을 건드리지 않는다
-export const autoWorkHoursOn = (cfg: { autoWorkHours?: boolean }) => cfg.autoWorkHours !== false;
+// 설정 「in 기준 근무시간 자동반영」(autoWorkHours, 기본 끔). 켜져 있고 채널·멤버 ID 가 올바를 때만 동작한다
+export const autoWorkHoursOn = (cfg: { autoWorkHours?: boolean; leaveInChannel?: string; leaveInUser?: string }) => cfg.autoWorkHours === true && leaveInTarget(cfg) !== null;
 export const leaveAtOf = (start: Date) => new Date(start.getTime() + WORK_SPAN_MIN * 60e3);
 export const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 export const dayOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 // 오늘 내가 올린 첫 in 의 출근 시각(없으면 null). 채널 읽기 실패는 던진다
-export async function findTodayIn(direct: SlackDirect, now: Date, channel = LEAVE_IN_CHANNEL, user = LEAVE_IN_USER): Promise<Date | null> {
+export async function findTodayIn(direct: SlackDirect, now: Date, channel: string, user: string): Promise<Date | null> {
   const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
   const r = await direct.call("slack_get_channel_history", { channel_id: channel, oldest: String(midnight.getTime() / 1000), limit: 200 });
   if (r?.error) throw new Error(String(r.error));
@@ -49,7 +69,7 @@ export async function findTodayIn(direct: SlackDirect, now: Date, channel = LEAV
 
 // MCP 연결용: 가벼운 모델이 슬랙 MCP 의 채널 읽기 도구로 오늘 내 메시지를 읽어 JSON 으로 돌려준다(읽기 전용, 도구는 slack_read_channel 만)
 export async function findTodayInMcp(
-  cfg: { models: { light: string } }, server: string, now: Date, channel = LEAVE_IN_CHANNEL, user = LEAVE_IN_USER,
+  cfg: { models: { light: string } }, server: string, now: Date, channel: string, user: string,
 ): Promise<Date | null> {
   const { query } = await import("@anthropic-ai/claude-agent-sdk");
   const { serverOptions } = await import("./mcp.ts");

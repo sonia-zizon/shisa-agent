@@ -65,7 +65,10 @@ export function openSetupAtLaunch({ firstRun = false, env = {} } = {}) {
   return firstRun || env.CY_SHOW_SETUP === '1';
 }
 
-export const okFolder = (p) => typeof p === 'string' && /^\//.test(p.trim()) && !/[\0\n]/.test(p);
+// 맥·리눅스는 / 로 시작, Windows 는 C:\x · C:/x · /C:/x(드라이브 맨 위·UNC \\서버 는 안 됨). 렌더러에서도 써서 node 모듈은 안 쓴다
+export const okFolder = (p) => typeof p === 'string' && /^(\/(?![\\/])|[A-Za-z]:[\\/]|[\\/][A-Za-z]:[\\/])/.test(p.trim()) && !/^[A-Za-z]:[\\/]*$/.test(p.trim()) && !/[\0\n]/.test(p);
+// 저장 모양: 앞뒤 공백을 떼고, /C:/x 는 C:/x 로(Windows 경로 앞의 / 하나)
+export const folderValue = (p) => p.trim().replace(/^[\\/]([A-Za-z]:[\\/])/, '$1');
 
 // 데몬보다 앱이 먼저 config.json 을 만들 때(새 설치): 마법사를 마칠 때까지 데몬은 아무것도 읽지 않고 모델도 부르지 않는다
 export const NEW_DAEMON_CONFIG = Object.freeze({ onboarded: false });
@@ -101,7 +104,7 @@ export function cleanSetupPatch(p) {
   }
   if ('repoRoots' in p) {
     if (!Array.isArray(p.repoRoots) || !p.repoRoots.every(okFolder)) return null;
-    out.repoRoots = p.repoRoots.map((x) => x.trim());
+    out.repoRoots = p.repoRoots.map(folderValue);
   }
   return Object.keys(out).length && Object.keys(p).every((k) => SETUP_KEYS.includes(k)) ? out : null;
 }

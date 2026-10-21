@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIn, workHoursFromIn, findTodayIn, hhmm, LEAVE_IN_USER } from "./leave-in.ts";
+import { parseIn, workHoursFromIn, findTodayIn, hhmm, parseChannel, parseUser, leaveInTarget, autoWorkHoursOn } from "./leave-in.ts";
 
+const LEAVE_IN_USER = "UTESTUSR1";
+const CH = "CTESTCHN1";
 const at = (h: number, m: number) => new Date(2026, 9, 19, h, m, 0);
 const ts = (d: Date) => d.getTime() / 1000;
 
@@ -38,8 +40,32 @@ test("findTodayIn: 내 계정의 첫 in 만, 늦게 쓴 in 26분도 인식", asy
     { user: LEAVE_IN_USER, text: "점심 먹고 올게요", ts: String(ts(at(12, 0))) },
     { user: LEAVE_IN_USER, text: "in 9:20", ts: String(ts(at(9, 45))) },
   ] }; } };
-  assert.equal(hhmm((await findTodayIn(direct, now))!), "09:20");
-  assert.equal(calls[0].channel_id, "CG4B7EVPH");
-  assert.equal(await findTodayIn({ call: async () => ({ messages: [] }) }, now), null);
-  await assert.rejects(findTodayIn({ call: async () => ({ error: "nope" }) }, now));
+  assert.equal(hhmm((await findTodayIn(direct, now, CH, LEAVE_IN_USER))!), "09:20");
+  assert.equal(calls[0].channel_id, CH);
+  assert.equal(await findTodayIn({ call: async () => ({ messages: [] }) }, now, CH, LEAVE_IN_USER), null);
+  await assert.rejects(findTodayIn({ call: async () => ({ error: "nope" }) }, now, CH, LEAVE_IN_USER));
+});
+
+test("parseChannel · parseUser: 링크·ID 파싱, 형식이 틀리면 null", () => {
+  assert.equal(parseChannel("CABC12345"), "CABC12345");
+  assert.equal(parseChannel(" https://ws.slack.com/archives/CABC12345 "), "CABC12345");
+  assert.equal(parseChannel("https://ws.slack.com/archives/CABC12345/p1700000000000000?thread_ts=1.2"), "CABC12345");
+  assert.equal(parseChannel("https://ws.slack.com/archives/CABC12345?x=1"), "CABC12345");
+  for (const bad of ["", "   ", "abc", "https://ws.slack.com/", "https://ws.slack.com/archives/xyz", undefined, 3]) assert.equal(parseChannel(bad), null);
+  assert.equal(parseUser("UABC12345"), "UABC12345");
+  assert.equal(parseUser(" WABC12345 "), "WABC12345");
+  for (const bad of ["", "CABC12345", "uabc12345", "U12", undefined]) assert.equal(parseUser(bad), null);
+});
+
+test("leaveInTarget · autoWorkHoursOn: 켬 + 채널·ID 둘 다 올바를 때만 동작", () => {
+  const ok = { leaveInChannel: "https://x.slack.com/archives/CABC12345", leaveInUser: "UABC12345" };
+  assert.deepEqual(leaveInTarget(ok), { channel: "CABC12345", user: "UABC12345" });
+  assert.equal(leaveInTarget({ ...ok, leaveInChannel: "" }), null);
+  assert.equal(leaveInTarget({ ...ok, leaveInUser: "" }), null);
+  assert.equal(leaveInTarget({ ...ok, leaveInUser: "nope" }), null);
+  assert.equal(leaveInTarget({}), null);
+  assert.equal(autoWorkHoursOn({ ...ok, autoWorkHours: true }), true);
+  assert.equal(autoWorkHoursOn(ok), false, "기본 끔");
+  assert.equal(autoWorkHoursOn({ autoWorkHours: true }), false, "채널·ID 없으면 안 함");
+  assert.equal(autoWorkHoursOn({ autoWorkHours: true, leaveInChannel: ok.leaveInChannel }), false);
 });

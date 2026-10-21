@@ -17,7 +17,7 @@ import { suggestTitle } from "./chat.ts";
 import { briefingDue } from "./briefing-sources.ts";
 import { loadCommands, SlashCommands } from "./commands.ts";
 import { createSlack } from "./slack/app.ts";
-import { autoWorkHoursOn, dayOf, findTodayIn, findTodayInMcp, workHoursFromIn } from "./leave-in.ts";
+import { autoWorkHoursOn, leaveInTarget, dayOf, findTodayIn, findTodayInMcp, workHoursFromIn } from "./leave-in.ts";
 import { TodoCanvas, openDm } from "./slack/canvas.ts";
 import { SlackIngester } from "./ingest/slack.ts";
 import { learnFrom } from "./profile.ts";
@@ -222,7 +222,8 @@ async function leaveInTick() {
   const direct = slackIngester.transport ? slackIngester.direct : undefined;
   const sc = (cfg.connectors as any)?.slack;
   const mcpServer: string | undefined = !direct && sc?.mode === "mcp" && typeof sc.server === "string" ? sc.server : undefined;
-  if ((!direct && !mcpServer) || leaveInBusy || !autoWorkHoursOn(cfg)) return;
+  const target = leaveInTarget(cfg);
+  if ((!direct && !mcpServer) || leaveInBusy || !autoWorkHoursOn(cfg) || !target) return;
   const now = new Date();
   if (!workHoursOf(cfg as unknown as Record<string, unknown>).workDays.includes(now.getDay())) return;
   if (leaveInDay !== dayOf(now)) { leaveInDay = dayOf(now); leaveInAt = 0; }
@@ -231,7 +232,7 @@ async function leaveInTick() {
   try {
     if (Date.now() - leaveInAt < 3 * 60e3) return;
     leaveInAt = Date.now();
-    const start = direct ? await findTodayIn(direct, now) : await findTodayInMcp(cfg as any, mcpServer!, now);
+    const start = direct ? await findTodayIn(direct, now, target.channel, target.user) : await findTodayInMcp(cfg as any, mcpServer!, now, target.channel, target.user);
     if (!start) return;
     leaveInApplied = leaveInDay; // 읽은 첫 in 은 한 번만 반영(넣지 못해도 다시 덮어쓰지 않는다)
     const wh = workHoursFromIn(start);

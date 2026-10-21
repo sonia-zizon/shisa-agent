@@ -18,14 +18,17 @@ export type WorkHours = {
   lunchAlert: boolean;
   leaveAlert: boolean;
   leaveTimer: boolean; // 캐릭터 말풍선 자리에 퇴근까지 남은 시간(⌛HH:MM:SS) 표시
-  autoWorkHours: boolean; // 슬랙 in 이 확인되면 근무 시간(출근 = in, 퇴근 = in + 9시간)을 설정에 자동 반영(leave-in.ts)
+  autoWorkHours: boolean; // 슬랙 in 이 확인되면 근무 시간(출근 = in, 퇴근 = in + 9시간)을 설정에 자동 반영(leave-in.ts). 기본 끔, 채널·멤버 ID 가 있어야 동작
+  leaveInChannel: string; // in 을 올리는 슬랙 채널(링크 또는 ID, 비면 자동반영 불가)
+  leaveInUser: string; // 내 슬랙 멤버 ID(U·W 로 시작, 비면 자동반영 불가)
 };
 export const WORK_DEFAULTS: Readonly<WorkHours> = Object.freeze({
-  workStart: "09:00", lunchTime: "12:00", workEnd: "18:00", workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true, autoWorkHours: true,
+  workStart: "09:00", lunchTime: "12:00", workEnd: "18:00", workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true, autoWorkHours: false, leaveInChannel: "", leaveInUser: "",
 });
 export const LEAVE_BEFORE_MIN = 10; // 퇴근 몇 분 전에 인사할지
 export const LUNCH_SPAN_MIN = 60; // 점심 시각부터 이만큼 안에 한 번
-export const WORK_KEYS = ["workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "leaveTimer", "autoWorkHours"] as const;
+export const WORK_KEYS = ["workStart", "lunchTime", "workEnd", "workDays", "startAlert", "leaveAlert", "leaveTimer", "autoWorkHours", "leaveInChannel", "leaveInUser"] as const;
+export const LEAVE_IN_TEXT_MAX = 300;
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -37,6 +40,7 @@ export function cleanDays(v: unknown): number[] | null {
   return [...new Set(v as number[])].sort((a, b) => a - b);
 }
 const alertOf = (v: unknown) => v !== false;
+const textOf = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, LEAVE_IN_TEXT_MAX) : "");
 
 // config.json 값 → 근무 시간(빠지거나 이상한 값은 기본값). 출근이 퇴근보다 늦으면 둘 다 기본값
 export function workHoursOf(f: Record<string, unknown> = {}): WorkHours {
@@ -47,7 +51,7 @@ export function workHoursOf(f: Record<string, unknown> = {}): WorkHours {
     workStart, workEnd,
     lunchTime: isHhmm(f.lunchTime) ? f.lunchTime : WORK_DEFAULTS.lunchTime,
     workDays: cleanDays(f.workDays) ?? [...WORK_DEFAULTS.workDays],
-    startAlert: alertOf(f.startAlert), lunchAlert: alertOf(f.lunchAlert), leaveAlert: alertOf(f.leaveAlert), leaveTimer: alertOf(f.leaveTimer), autoWorkHours: alertOf(f.autoWorkHours),
+    startAlert: alertOf(f.startAlert), lunchAlert: alertOf(f.lunchAlert), leaveAlert: alertOf(f.leaveAlert), leaveTimer: alertOf(f.leaveTimer), autoWorkHours: f.autoWorkHours === true, leaveInChannel: textOf(f.leaveInChannel), leaveInUser: textOf(f.leaveInUser),
   };
 }
 

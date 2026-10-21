@@ -65,6 +65,8 @@ export type Config = {
   leaveAlert?: boolean;
   leaveTimer?: boolean;
   autoWorkHours?: boolean;
+  leaveInChannel?: string;
+  leaveInUser?: string;
   // 날씨 알리미(설정 창 「날씨」, weather.ts): 고른 지역(없으면 꺼짐)·출근 후 브리핑 다음·퇴근 20분 전·정한 시각. loadConfig 는 늘 채운다
   weather?: WeatherConfig;
   // 캐릭터(characters.ts id). 없거나 모르는 값이면 시사
@@ -326,7 +328,7 @@ export function loadConfig(env = process.env, file: FileConfig = readFileConfig(
     todayReminder: todayReminderOf(f.todayReminder, notes),
     calendarAlert: calendarAlertOf(f.calendarAlert),
     weather: weatherOf(f.weather),
-    ...workHoursOf(f), // lunchAlert·workStart·lunchTime·workEnd·workDays·startAlert·leaveAlert·leaveTimer·autoWorkHours
+    ...workHoursOf(f), // lunchAlert·workStart·lunchTime·workEnd·workDays·startAlert·leaveAlert·leaveTimer·autoWorkHours·leaveInChannel·leaveInUser
     ...(typeof f.character === "string" && f.character ? { character: f.character } : {}),
     ...(isLang(f.language) ? { language: f.language } : {}),
     kgModel: env.CY_AGENT_KG_MODEL ?? (f.kgModel as string) ?? (env.CY_AGENT_MODEL_LIGHT ?? (f.models as any)?.light ?? "claude-haiku-5-5"),

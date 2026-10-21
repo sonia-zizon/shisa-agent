@@ -120,6 +120,12 @@ export function sanitizeSettingsPatch(p) {
     if (typeof p[k] !== 'boolean') return null;
     out[k] = p[k];
   }
+  // in 자동반영의 슬랙 채널(링크·ID)·멤버 ID: 글, 앞뒤 공백 뗌, 300자까지(빈 글 = 지움). 형식은 데몬이 다시 본다
+  for (const k of ['leaveInChannel', 'leaveInUser']) {
+    if (p[k] === undefined) continue;
+    if (typeof p[k] !== 'string' || p[k].trim().length > LEAVE_IN_TEXT_MAX) return null;
+    out[k] = p[k].trim();
+  }
   // 날씨 알리미: { place?: {...} | null, morning?, leave?, times? } — 준 칸만
   if (p.weather !== undefined) {
     const w = cleanWeatherPatch(p.weather);
@@ -137,8 +143,18 @@ export function sanitizeSettingsPatch(p) {
 
 // ---- 근무 시간(GET /settings workStart·lunchTime·workEnd·workDays·startAlert·lunchAlert·leaveAlert·leaveTimer) ----
 // 데몬 agent/src/work-hours.ts 와 같은 규칙. 요일 칩은 월요일부터
-export const WORK_KEYS = ['workStart', 'lunchTime', 'workEnd', 'workDays', 'startAlert', 'leaveAlert', 'leaveTimer', 'autoWorkHours'];
-export const WORK_DEFAULT = { workStart: '09:00', lunchTime: '12:00', workEnd: '18:00', workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true, autoWorkHours: true };
+export const WORK_KEYS = ['workStart', 'lunchTime', 'workEnd', 'workDays', 'startAlert', 'leaveAlert', 'leaveTimer', 'autoWorkHours', 'leaveInChannel', 'leaveInUser'];
+export const LEAVE_IN_TEXT_MAX = 300;
+// in 자동반영: 채널은 링크(…/archives/C…)나 ID(C·G·D…), 멤버 ID 는 U·W 로 시작. 데몬 leave-in.ts 와 같은 규칙. 맞으면 ID, 아니면 null
+export function parseLeaveInChannel(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  if (/^[CGD][A-Z0-9]{6,}$/.test(s)) return s;
+  const m = /\/(C[A-Z0-9]{6,})(?:[/?#]|$)/.exec(s);
+  return m ? m[1] : null;
+}
+export const parseLeaveInUser = (v) => (typeof v === 'string' && /^[UW][A-Z0-9]{6,}$/.test(v.trim()) ? v.trim() : null);
+export const WORK_DEFAULT = { workStart: '09:00', lunchTime: '12:00', workEnd: '18:00', workDays: [1, 2, 3, 4, 5], startAlert: true, lunchAlert: true, leaveAlert: true, leaveTimer: true, autoWorkHours: false, leaveInChannel: '', leaveInUser: '' };
 export const WORK_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 // 요일 칩 글(0 = 일요일, 지금 언어). 읽을 때마다 그 언어로
 export const DAY_LABEL = Object.defineProperties([], Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((i) => [i, { get: () => weekdays()[i], enumerable: true }])));
@@ -155,7 +171,8 @@ export function workHoursView(s) {
     lunchTime: okHhmm(o.lunchTime) ? o.lunchTime : WORK_DEFAULT.lunchTime,
     workEnd: okHhmm(o.workEnd) ? o.workEnd : WORK_DEFAULT.workEnd,
     workDays: cleanWorkDays(o.workDays) ?? [...WORK_DEFAULT.workDays],
-    startAlert: o.startAlert !== false, lunchAlert: o.lunchAlert !== false, leaveAlert: o.leaveAlert !== false, leaveTimer: o.leaveTimer !== false, autoWorkHours: o.autoWorkHours !== false,
+    startAlert: o.startAlert !== false, lunchAlert: o.lunchAlert !== false, leaveAlert: o.leaveAlert !== false, leaveTimer: o.leaveTimer !== false, autoWorkHours: o.autoWorkHours === true,
+    leaveInChannel: typeof o.leaveInChannel === 'string' ? o.leaveInChannel : '', leaveInUser: typeof o.leaveInUser === 'string' ? o.leaveInUser : '',
   };
 }
 // 요일 칩을 켜고 끄기 → { workDays } | { error }(하나도 안 남으면)

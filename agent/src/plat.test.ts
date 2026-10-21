@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bashPathWin, isRealishUnknown, realish, winLocalPath, winRunnable, withFsMemo } from "./plat.ts";
+import { normRoot, bashPathWin, isRealishUnknown, realish, winLocalPath, winRunnable, withFsMemo } from "./plat.ts";
 import { cmdQuoteArg, findOnPath, isAbsPath, isFsRoot, msysToWin, openSpec, pathKey, pathWithin, samePath, spawnSpec, winNorm, winPathForms, winShellNorm, winSpawnSpec } from "./plat.ts";
 import { testSpawn, userShellArgs } from "./fixer.ts";
 
@@ -156,4 +156,23 @@ test("realish: 있는 데까지 실제 경로 + 나머지 · 아주 긴 경로(�
   assert.ok(isRealishUnknown(deep));
   if (process.platform === "win32") assert.equal(winLocalPath(deep), undefined); // Windows: UNC 처럼 막히는 모양
   assert.ok(!isRealishUnknown(realish(join(dir, ...Array(50).fill("s")))));
+});
+test("normRoot: Windows 는 C:\\x · C:/x · /C:/x 를 C:\\x 로, 맨 위·UNC·상대는 null. POSIX 는 끝 / 만 뗀다", () => {
+  assert.equal(normRoot("C:\\code\\repo", "win32"), "C:\\code\\repo");
+  assert.equal(normRoot("C:/code/repo/", "win32"), "C:\\code\\repo");
+  assert.equal(normRoot(" /C:/code/repo ", "win32"), "C:\\code\\repo");
+  assert.equal(normRoot("c:\\Code\\", "win32"), "c:\\Code");
+  for (const bad of ["", "C:\\", "C:/", "/C:/", "relative\\dir", "\\\\server\\share", "/Users/me", "C:"]) assert.equal(normRoot(bad, "win32"), null, bad);
+  assert.equal(normRoot("/Users/me/code/", "darwin"), "/Users/me/code");
+  assert.equal(normRoot("/", "darwin"), "/");
+  assert.equal(normRoot("C:\\code", "darwin"), null);
+  assert.equal(normRoot("code", "darwin"), null);
+});
+
+test("레포 허용 비교(pathWithin): 슬래시·백슬래시·대소문자·드라이브 문자가 달라도 같은 폴더", () => {
+  const root = normRoot("/C:/Code/Repos/", "win32")!;
+  assert.equal(pathWithin("c:/code/repos/app/src", root, "win32"), true);
+  assert.equal(pathWithin("C:\\CODE\\REPOS", root, "win32"), true);
+  assert.equal(pathWithin("C:\\Code\\Repos-x\\app", root, "win32"), false);
+  assert.equal(pathWithin("D:\\Code\\Repos\\app", root, "win32"), false);
 });

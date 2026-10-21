@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   NEW_DAEMON_CONFIG, setupView, cleanSetupPatch,
-  SETUP_PHASES, SETUP_FLOW_VERSION, isSetupPhase, phaseAfterBrain, backPhase, restorePhase, agentFrom, setupSummary, okFolder, openSetupAtLaunch, NO_AI,
+  SETUP_PHASES, SETUP_FLOW_VERSION, isSetupPhase, phaseAfterBrain, backPhase, restorePhase, agentFrom, setupSummary, okFolder, folderValue, openSetupAtLaunch, NO_AI,
 } from '../src/setup-plan.js';
 
 test('허용 phase 와 버전: 이름 → 뇌 → 키·안내 → 더 연결 → 끝', () => {
@@ -110,4 +110,14 @@ test('cleanSetupPatch: 작업 기록 읽기(참/거짓)와 마법사 마침(true
 test('앱이 데몬보다 먼저 만드는 config.json 은 새 설치 표시(onboarded: false)', () => {
   assert.deepEqual({ ...NEW_DAEMON_CONFIG }, { onboarded: false });
   assert.equal(Object.isFrozen(NEW_DAEMON_CONFIG), true);
+});
+
+test('okFolder·cleanSetupPatch: Windows 경로도 받고 앞 슬래시는 떼고, 드라이브 맨 위·UNC·상대는 거절', () => {
+  for (const ok of ['C:\\code', 'C:/code/repo', '/C:/code', 'd:\\x\\y', ' /Users/me/code ']) assert.equal(okFolder(ok), true, ok);
+  for (const bad of ['', 'code', 'C:', 'C:\\', 'C:/', '\\\\server\\share', '//server/share', 'rel\\dir']) assert.equal(okFolder(bad), false, bad);
+  assert.equal(folderValue(' /C:/code '), 'C:/code');
+  assert.equal(folderValue('C:\\code'), 'C:\\code');
+  assert.equal(folderValue('/Users/me'), '/Users/me');
+  assert.deepEqual(cleanSetupPatch({ repoRoots: ['/C:/a', ' C:\\b ', '/c'] }), { repoRoots: ['C:/a', 'C:\\b', '/c'] });
+  assert.equal(cleanSetupPatch({ repoRoots: ['C:\\'] }), null);
 });

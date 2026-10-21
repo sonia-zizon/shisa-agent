@@ -7,7 +7,7 @@ import {
   repoSlugFrom, autoMergeNext, needsSetupHint, localReadView,
   REMINDER_DEFAULT, REMINDER_HOURS, cleanReminder, parseTimes, reminderSummary,
   ALERT_DEFAULT, cleanCalendarAlert, alertMinutesNext, parseAlertMinutes, alertChoices, calendarAlertSummary,
-  workHoursView, workDaysNext, workTimeNext, WORK_DAY_ORDER, DAY_LABEL,
+  workHoursView, workDaysNext, workTimeNext, WORK_DAY_ORDER, DAY_LABEL, parseLeaveInChannel, parseLeaveInUser,
   weatherView, weatherTimesNext, weatherSummary,
 } from '../src/settings.js';
 import { createPlaceSearch } from '../src/weather-search.js';
@@ -1040,6 +1040,39 @@ function renderCalAlert() {
   }
   $('cal-summary').textContent = calendarAlertSummary(calAlert());
 }
+// in 자동반영 입력칸: 토글을 켠 채 아직 저장 전인 동안도 칸을 보인다(둘 다 올바르게 채워야 켜짐으로 저장)
+let leaveInOpen = false;
+// 토글·두 칸의 현재 값을 저장한다. 둘 다 올바르면 켬으로, 하나라도 비었거나 틀리면 끔으로(closing: 창을 닫는 중이면 오류 글 없이 조용히)
+async function commitLeaveIn(closing = false) {
+  if (!settings) return;
+  const v = workHoursView(settings);
+  const channel = $('leave-in-channel').value.trim(), user = $('leave-in-user').value.trim();
+  const on = $('auto-work-hours-on').checked;
+  const okCh = !!parseLeaveInChannel(channel), okUser = !!parseLeaveInUser(user);
+  const err = $('leave-in-err');
+  err.textContent = '';
+  const patch = {};
+  // 글 자체는 올바르거나 비었을 때만 저장(틀린 글은 저장하지 않고 알린다)
+  if ((okCh || !channel) && channel !== v.leaveInChannel) patch.leaveInChannel = channel;
+  if ((okUser || !user) && user !== v.leaveInUser) patch.leaveInUser = user;
+  const complete = okCh && okUser;
+  if (on && complete) { if (!v.autoWorkHours) patch.autoWorkHours = true; }
+  else if (v.autoWorkHours) patch.autoWorkHours = false;
+  if (!closing && on) {
+    if (channel && !okCh) err.textContent = t('settings.leave_in_bad_channel');
+    else if (user && !okUser) err.textContent = t('settings.leave_in_bad_user');
+    else if (!complete && (channel || user)) err.textContent = t('settings.leave_in_need_both');
+  }
+  if (!Object.keys(patch).length) return;
+  if (await save(patch)) {
+    if (!closing) {
+      if (patch.autoWorkHours === true) flash(t('settings.auto_work_hours_on_done'));
+      else if (patch.autoWorkHours === false) flash(t('settings.auto_work_hours_off_done'));
+    }
+    leaveInOpen = on && !complete;
+    if (!closing) renderWork();
+  }
+}
 // 근무 시간: 출근·점심·퇴근 시각, 요일, 알림 셋(출근 인사·점심시간 알림·퇴근 인사, 기본 다 켬)
 function renderWork() {
   if (!settings) return;
@@ -1050,7 +1083,9 @@ function renderWork() {
   $('lunch-on').checked = v.lunchAlert;
   $('leave-on').checked = v.leaveAlert;
   $('leave-timer-on').checked = v.leaveTimer;
-  $('auto-work-hours-on').checked = v.autoWorkHours;
+  $('auto-work-hours-on').checked = v.autoWorkHours || leaveInOpen;
+  $('leave-in-fields').hidden = !$('auto-work-hours-on').checked;
+  for (const [id, k] of [['leave-in-channel', 'leaveInChannel'], ['leave-in-user', 'leaveInUser']]) if (document.activeElement !== $(id)) $(id).value = v[k];
   const box = $('work-days');
   box.replaceChildren();
   for (const d of WORK_DAY_ORDER) {
@@ -1088,7 +1123,6 @@ for (const [id, k, on, off] of [
   ['lunch-on', 'lunchAlert', 'settings.lunch_on_done', 'settings.lunch_off_done'],
   ['leave-on', 'leaveAlert', 'settings.leave_on_done', 'settings.leave_off_done'],
   ['leave-timer-on', 'leaveTimer', 'settings.leave_timer_on_done', 'settings.leave_timer_off_done'],
-  ['auto-work-hours-on', 'autoWorkHours', 'settings.auto_work_hours_on_done', 'settings.auto_work_hours_off_done'],
 ]) {
   $(id).addEventListener('change', async (e) => {
     const cb = e.target;
@@ -1099,6 +1133,28 @@ for (const [id, k, on, off] of [
     else flash(t(cb.checked ? on : off));
   });
 }
+// in 기준 근무시간 자동반영: 켜면 채널·멤버 ID 칸이 나타나고(둘 다 있어야 켜짐으로 저장), 끄면 숨기고 끔으로 저장
+$('auto-work-hours-on').addEventListener('change', async (e) => {
+  const cb = e.target;
+  $('leave-in-err').textContent = '';
+  if (cb.checked) {
+    leaveInOpen = true;
+    $('leave-in-fields').hidden = false;
+    const ch = $('leave-in-channel');
+    if (parseLeaveInChannel(ch.value) && parseLeaveInUser($('leave-in-user').value)) await commitLeaveIn();
+    else { $('leave-in-err').textContent = t('settings.leave_in_need_both'); ch.focus(); }
+    return;
+  }
+  leaveInOpen = false;
+  $('leave-in-fields').hidden = true;
+  cb.disabled = true;
+  const ok = await save({ autoWorkHours: false });
+  cb.disabled = false;
+  if (!ok) { cb.checked = true; leaveInOpen = true; $('leave-in-fields').hidden = false; } else flash(t('settings.auto_work_hours_off_done'));
+});
+for (const id of ['leave-in-channel', 'leave-in-user']) $(id).addEventListener('change', () => commitLeaveIn());
+// 창을 닫을 때: 켠 채 둘 중 하나라도 비었거나 틀리면 자동반영은 끔으로 저장
+window.addEventListener('pagehide', () => { commitLeaveIn(true); });
 $('cal-off').addEventListener('change', (e) => saveCalAlert(e.target.checked ? [] : (lastAlertOn ?? ALERT_DEFAULT.minutesBefore)));
 async function addCustomAlert() {
   const p = parseAlertMinutes($('cal-custom').value);

@@ -12,6 +12,18 @@ export function isAbsPath(p: string, plat: Plat = process.platform): boolean {
   return /^[A-Za-z]:[\\/]/.test(p);
 }
 
+// 레포 폴더 입력 다듬기(설정 repoRoots 저장용). 절대 경로가 아니면 null.
+// POSIX: '/' 로 시작, 끝의 / 는 뗀다. Windows: C:\x · C:/x · /C:/x(앞의 / 하나는 뗀다) → C:\x. 드라이브 맨 위(C:\)·UNC 는 null
+export function normRoot(raw: string, plat: Plat = process.platform): string | null {
+  const s = String(raw).trim();
+  if (plat !== "win32") return isAbsPath(s, plat) ? s.replace(/\/+$/, "") || "/" : null;
+  const m = /^[\\/]([A-Za-z]:(?:[\\/].*)?)$/.exec(s);
+  const d = m ? m[1] : s;
+  if (!/^[A-Za-z]:[\\/]/.test(d)) return null;
+  const n = path.win32.normalize(d).replace(/[\\/]+$/, "");
+  return /^[A-Za-z]:$/.test(n) ? null : n; // 드라이브 맨 위는 안 됨
+}
+
 // Git Bash(MSYS) 경로 → Windows 경로: /c/Users/x · /cygdrive/c/x → C:\Users\x. 아니면 그대로. Windows 에서만
 export function msysToWin(p: string, plat: Plat = process.platform): string {
   if (plat !== "win32") return p;

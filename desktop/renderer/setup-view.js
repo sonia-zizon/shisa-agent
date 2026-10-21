@@ -4,7 +4,7 @@ import { who, whoId } from './who.js';
 import { characterAssets } from '../src/character.js';
 import { AGENTS, FEATURES, agentSteps, buildWalk, featureTitle } from '../src/setup-flow.js';
 import { sayFor, providerById, connectSteps, slotCheck, BRAIN_CHOICES, EXTRAS, SESSIONS_CONSENT, hubItem } from '../src/ai-onboard.js';
-import { setupSummary, okFolder } from '../src/setup-plan.js';
+import { setupSummary, okFolder, folderValue } from '../src/setup-plan.js';
 import { HUB_CAP, connectorDisconnectCopy, disconnectControl } from '../src/disconnect.js';
 import { calendarCardSummary } from '../src/calendars.js';
 import { createCalendarEditor } from '../src/calendar-editor.js';
@@ -504,7 +504,7 @@ function extrasView({ done = {}, repos = [], coder = true, readSessions = false,
   const items = EXTRAS.filter((id) => id !== 'repos').map(hubItem).filter(Boolean);
   const input = h('input', { type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: t('setup.view_input_placeholder_3'), 'aria-label': t('setup.view_input_aria_label'), value: repoDraft });
   input.addEventListener('input', () => { repoDraft = input.value; });
-  const add = () => { if (okFolder(repoDraft)) { onAddRepo(repoDraft.trim()); repoDraft = ''; } };
+  const add = () => { if (okFolder(repoDraft)) { onAddRepo(folderValue(repoDraft)); repoDraft = ''; } };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) add(); });
   const repo = hubItem('repos');
   return screen({

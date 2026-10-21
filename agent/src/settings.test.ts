@@ -1,3 +1,4 @@
+import { IS_WIN } from "./plat.ts";
 import { test } from "node:test";
 import { resolveConnectors } from "./connectors.ts";
 import { briefingTask } from "./briefing-sources.ts";
@@ -205,7 +206,7 @@ test("Settings: 뇌·이름·레포 폴더 — 바로 반영, 키 지우기·모
   const cfg = cfgOf({ brain: { provider: "openai", openaiApiKey: "sk-old-key-1234567890abcdef" } });
   const s = new Settings(cfg, { path: p, env: {} });
   assert.deepEqual(s.view().brain.keys, { gemini: false, openai: true, anthropic: false, genspark: false });
-  const r = s.put({ brain: { provider: "anthropic", keys: { anthropic: " sk-ant-new-1234567890 ", openai: null }, model: "claude-haiku-5-5" }, user: { name: "  홍  길동 " }, repoRoots: ["/Users/me/code/", "/Users/me/code"] });
+  const r = s.put({ brain: { provider: "anthropic", keys: { anthropic: " sk-ant-new-1234567890 ", openai: null }, model: "claude-haiku-5-5" }, user: { name: "  홍  길동 " }, repoRoots: IS_WIN ? ["C:\\Users\\me\\code\\", "c:/users/me/code", "/C:/Users/me/code"] : ["/Users/me/code/", "/Users/me/code"] });
   assert.ok(r.ok);
   assert.equal(cfg.brain.provider, "anthropic");
   assert.equal(cfg.brain.anthropicApiKey, "sk-ant-new-1234567890");
@@ -213,7 +214,7 @@ test("Settings: 뇌·이름·레포 폴더 — 바로 반영, 키 지우기·모
   assert.equal(cfg.models.general, "claude-haiku-5-5");
   assert.equal(cfg.user.name, "홍 길동");
   assert.deepEqual(cfg.user.aliases, []);
-  assert.deepEqual(cfg.repoRoots, ["/Users/me/code"]);
+  assert.deepEqual(cfg.repoRoots, [IS_WIN ? "C:\\Users\\me\\code" : "/Users/me/code"]);
   const file = JSON.parse(readFileSync(p, "utf8"));
   assert.deepEqual(file.brain, { provider: "anthropic", anthropicApiKey: "sk-ant-new-1234567890" });
   assert.deepEqual(file.user, { aliases: ["gildong"], name: "홍 길동" });
@@ -292,4 +293,44 @@ test("config: calendarAlert 읽기, 이상한 값은 빼고 모양이 틀리면 
   assert.deepEqual(cfgOf({ calendarAlert: { minutesBefore: [30, "x", 0, 5, 5, 2880, 60, 1] } }).calendarAlert, { minutesBefore: [2880, 60, 30, 5, 1] });
   assert.deepEqual(cfgOf({ calendarAlert: "loud" }).calendarAlert, { minutesBefore: [10] });
   assert.deepEqual(cfgOf({ calendarAlert: { minutesBefore: [] } }).calendarAlert, { minutesBefore: [] });
+});
+
+test("Settings: repoRoots 는 Windows 경로를 받아 정상 형태로 저장, 맥 경로는 Windows 에서 거절", () => {
+  const d = tmp(), p = join(d, "config.json");
+  writeFileSync(p, "{}");
+  const cfg = cfgOf({});
+  const s = new Settings(cfg, { path: p, env: {} });
+  if (IS_WIN) {
+    assert.ok(s.put({ repoRoots: ["C:\\a\\b", "C:/c/d/", "/D:/e"] }).ok);
+    assert.deepEqual(cfg.repoRoots, ["C:\\a\\b", "C:\\c\\d", "D:\\e"]);
+    assert.deepEqual(JSON.parse(readFileSync(p, "utf8")).repoRoots, ["C:\\a\\b", "C:\\c\\d", "D:\\e"]);
+    for (const bad of ["/Users/me", "C:\\", "rel", "\\\\srv\\x"]) assert.equal(s.put({ repoRoots: [bad] }).ok, false, bad);
+  } else {
+    assert.ok(s.put({ repoRoots: ["/a/b/"] }).ok);
+    assert.deepEqual(cfg.repoRoots, ["/a/b"]);
+    assert.equal(s.put({ repoRoots: ["C:\\a"] }).ok, false);
+  }
+});
+
+test("Settings: in 자동반영은 기본 끔, 채널·멤버 ID 가 둘 다 올바를 때만 켜지고 아니면 끔으로 저장", () => {
+  const d = tmp(), p = join(d, "config.json");
+  writeFileSync(p, "{}");
+  const cfg = cfgOf({});
+  const s = new Settings(cfg, { path: p, env: {} });
+  assert.equal(s.view().autoWorkHours, false);
+  assert.equal(s.view().leaveInChannel, "");
+  let r = s.put({ autoWorkHours: true });
+  assert.ok(r.ok);
+  assert.equal(cfg.autoWorkHours, false, "채널·ID 없이는 켜지지 않는다");
+  r = s.put({ autoWorkHours: true, leaveInChannel: " https://x.slack.com/archives/CABC12345 ", leaveInUser: " UABC12345 " });
+  assert.ok(r.ok);
+  assert.equal(cfg.autoWorkHours, true);
+  assert.equal(cfg.leaveInUser, "UABC12345");
+  assert.equal(JSON.parse(readFileSync(p, "utf8")).autoWorkHours, true);
+  r = s.put({ leaveInUser: "" });
+  assert.ok(r.ok);
+  assert.equal(cfg.autoWorkHours, false, "ID 를 비우면 끔");
+  assert.equal(JSON.parse(readFileSync(p, "utf8")).autoWorkHours, false);
+  assert.equal(s.put({ leaveInChannel: 5 }).ok, false);
+  assert.equal(s.put({ leaveInChannel: "x".repeat(301) }).ok, false);
 });

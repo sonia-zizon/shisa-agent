@@ -193,7 +193,12 @@ test("점심 영상: 먹는 영상이 있으면 그것, 없으면(모몽가) 그
   bus.activity.stop();
 });
 
-test("autoWorkHours: 기본 켬, false 만 끔 + put 반영", () => {
-  assert.equal(workHoursOf({}).autoWorkHours, true);
-  assert.equal(workHoursOf({ autoWorkHours: false }).autoWorkHours, false);
+test("autoWorkHours: 기본 끔, true 만 켬 + 채널·멤버 ID 는 다듬어서", () => {
+  assert.equal(workHoursOf({}).autoWorkHours, false);
+  assert.equal(workHoursOf({ autoWorkHours: "yes" }).autoWorkHours, false);
+  assert.equal(workHoursOf({ autoWorkHours: true }).autoWorkHours, true);
+  assert.equal(workHoursOf({}).leaveInChannel, "");
+  assert.equal(workHoursOf({ leaveInChannel: "  CABC12345 ", leaveInUser: " UABC12345 " }).leaveInChannel, "CABC12345");
+  assert.equal(workHoursOf({ leaveInUser: 5 }).leaveInUser, "");
+  assert.equal(workHoursOf({ leaveInChannel: "x".repeat(1000) }).leaveInChannel.length, 300);
 });

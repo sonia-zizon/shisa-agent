@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { sanitizeSettingsPatch, workHoursView, workDaysNext, workTimeNext, WORK_DEFAULT, WORK_DAY_ORDER, DAY_LABEL } from '../src/settings.js';
+import { sanitizeSettingsPatch, parseLeaveInChannel, parseLeaveInUser, workHoursView, workDaysNext, workTimeNext, WORK_DEFAULT, WORK_DAY_ORDER, DAY_LABEL } from '../src/settings.js';
 import { slotRows } from '../src/character-edit.js';
 import { CHARACTER_LINES } from '../src/character-lines.js';
 
@@ -45,4 +45,19 @@ test('퇴근 인사 대사: 기본 캐릭터마다 local.leave, 자리표시는 
     for (const m of c.local.leave.matchAll(/\{(\w+)\}/g)) assert.equal(m[1], 'mins', id);
   }
   assert.match(slotRows().find((r) => r.slot === 'plan').hint, /퇴근 10분 전/);
+});
+
+test('in 자동반영: 기본 끔(true 만 켬), 채널·멤버 ID 는 글로 다듬어 전달, 형식 파싱', () => {
+  assert.equal(workHoursView({}).autoWorkHours, false);
+  assert.equal(workHoursView({ autoWorkHours: 'yes' }).autoWorkHours, false);
+  assert.equal(workHoursView({ autoWorkHours: true }).autoWorkHours, true);
+  assert.deepEqual(workHoursView({ leaveInChannel: 'CABC12345', leaveInUser: 5 }).leaveInUser, '');
+  assert.deepEqual(sanitizeSettingsPatch({ autoWorkHours: true, leaveInChannel: '  CABC12345 ', leaveInUser: ' UABC12345 ' }), { autoWorkHours: true, leaveInChannel: 'CABC12345', leaveInUser: 'UABC12345' });
+  assert.deepEqual(sanitizeSettingsPatch({ leaveInUser: '' }), { leaveInUser: '' });
+  assert.equal(sanitizeSettingsPatch({ leaveInChannel: 3 }), null);
+  assert.equal(sanitizeSettingsPatch({ leaveInChannel: 'x'.repeat(301) }), null);
+  assert.equal(parseLeaveInChannel('https://ws.slack.com/archives/CABC12345?x=1'), 'CABC12345');
+  assert.equal(parseLeaveInChannel('nope'), null);
+  assert.equal(parseLeaveInUser('WABC12345'), 'WABC12345');
+  assert.equal(parseLeaveInUser('CABC12345'), null);
 });

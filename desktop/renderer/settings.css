@@ -164,6 +164,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .work-time { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .work-time input { padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; min-width: 0; }
 .work-time input:invalid { border-color: var(--err); }
+.leave-in-fields { margin: 6px 0 10px; }
+.leave-in-fields[hidden] { display: none; }
 .work-days, .work-alerts { margin-top: 8px; }
 
 /* 날씨: 지역 검색 칸 + 아래 후보 목록 */
